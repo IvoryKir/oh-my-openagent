@@ -25,6 +25,13 @@ an indexer, or another senpi process). When that hit the terminal transition the
   is released, and settles the waiters with a synthesized `error` record naming the persistence failure.
   `#settleWaiters(taskId, terminal?)` accepts that record instead of re-reading the store, which is guaranteed
   stale in this scenario. The DAG node folds as failed and `retry` can re-run it.
+
+
+
+## 2026-09-10 — Head every builtin Claude rung with the claude-sdk-oauth subscription lane
+
+Every `claude-*` rung in `src/category/fallback-chains.ts` and `src/agents/builtin/fallback-chains.ts` (metis, momus, and the explore/librarian haiku rungs) now lists `claude-sdk-oauth` before `anthropic`, `anthropic-api`, `github-copilot`, and `opencode`. senpi's Claude subscription lane serves the anthropic ids verbatim, and rung provider order is the ranking in `resolveModelForDelegateTask`, so a machine logged in to Claude Pro/Max that also holds an OpenCode Zen key was routed to the metered `opencode/claude-*` lane on every delegated Claude turn (#8051). The builtin category default stays pinned to `anthropic`; when `claude-sdk-oauth` is not authenticated (or `enabled: false`) it is absent from `getAvailable()` and resolution is unchanged. `model-core`'s requirement tables stay without the provider: no other edition has it, the same senpi-only delta the kimi-coding rungs already carry. `src/category/anthropic-lane.test.ts` pins the subscription-lane win and the unchanged no-lane resolution.
+
 ## 2026-09-08 — Persist child_session_id on spawned task records
 
 `#recordSpawnFacts` now writes the spawned child's own session id from the handle onto `st_*.json` as `child_session_id`, for both in-process and process children. Reattach rewrites keep or refresh the field from the live handle so resume paths cannot drop it. The parser already treated the field as optional; a legacy record without it still loads. External readers (omo-desktop) join a grandchild session's `parent_session_id` back to this field.

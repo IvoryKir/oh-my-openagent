@@ -44,6 +44,7 @@ describe("dead-chain category disabling", () => {
         "bailian-coding-plan",
         "opencode-go",
         "xai",
+        "claude-sdk-oauth",
         "anthropic-api",
         "github-copilot",
       ])
