@@ -126,7 +126,7 @@ export async function runKibitzerJudge(
       state.cancelled = true
       return await record({ status: "dropped", cause: "deadline", model: resolution.model, candidateCount: input.candidates.length, runId })
     }
-    const classification = classifyJudgeTurn(raced.outcome)
+    const classification = classifyJudgeTurn(raced.outcome, accepted)
     const model = raced.outcome.status === "cancelled" ? undefined : raced.outcome.model
     if (classification.status === "failed") {
       const reason = normalizeGateReason(classification.reason)
@@ -136,6 +136,7 @@ export async function runKibitzerJudge(
     if (classification.status === "dropped") {
       return await record({ status: "dropped", cause: "cancelled", runId, candidateCount: input.candidates.length })
     }
+    // `empty` is a completed run with nothing accepted; the runner reports it as `empty` from `accepted`.
     return await record({ status: "completed", ...(model === undefined ? {} : { model }) })
   } catch (error) {
     host.options.logger?.warn("kibitzer gate child session creation failed", { error: normalizeGateReason(describe(error)), runId })

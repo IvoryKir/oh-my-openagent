@@ -7,6 +7,8 @@ import { rmEfaultTolerant } from "./teardown.test-support"
 
 const SECRET = "sk-live-abcdefghijklmnop"
 const SECRET_ERROR = `Authorization: Bearer ${SECRET}`
+/** senpi packages/agent/src/empty-assistant-recovery.ts settles a second invisible stop as this error. */
+const EMPTY_RESPONSE_TWICE = { stopReason: "error", errorMessage: "Model returned an empty response twice" } as const
 
 afterEach(async () => { await Promise.all(roots.splice(0).map((root) => rmEfaultTolerant(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }))) })
 
@@ -54,6 +56,34 @@ describe("KibitzerGateRunner", () => {
     const pending = runner.launch(launchInput())
     stub.resolve()
     const result = await pending
+
+    // then
+    expect(result.status).toBe("empty")
+  })
+
+  test("#given a judge that nudges once then settles with the empty-response-twice error #when the runner launches #then the accepted nudge is delivered as nudged", async () => {
+    // given: the judge answered through `nudge`, then stopped silently twice (issue #7963)
+    const { identityPaths } = await fixture()
+    const { warnings, logger } = captureWarnings()
+    const stub = scriptedSession(nudgeOnce, EMPTY_RESPONSE_TWICE)
+    const runner = new KibitzerGateRunner(runnerOptions(identityPaths, { createSession: stub.createSession, logger }))
+
+    // when
+    const result = await runner.launch(launchInput())
+
+    // then
+    expect(result).toMatchObject({ status: "nudged", nudges: [{ path: CANDIDATE_PATH }] })
+    expect(warnings.map((entry) => entry.message)).not.toContain("kibitzer gate child failed")
+  })
+
+  test("#given a judge that nudges nothing and settles with the empty-response-twice error #when the runner launches #then the result is empty, not failed", async () => {
+    // given
+    const { identityPaths } = await fixture()
+    const stub = scriptedSession(async () => undefined, EMPTY_RESPONSE_TWICE)
+    const runner = new KibitzerGateRunner(runnerOptions(identityPaths, { createSession: stub.createSession }))
+
+    // when
+    const result = await runner.launch(launchInput())
 
     // then
     expect(result.status).toBe("empty")
