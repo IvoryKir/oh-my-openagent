@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test"
+import { mkdtempSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 
 import { OmoSidePanelSettingsSchema, type OmoSidePanelSettings } from "@oh-my-opencode/omo-config-core"
 
@@ -43,7 +46,10 @@ function componentContext(pi: FakeExtensionAPI): ComponentContext {
 }
 
 function settings(overrides: Partial<OmoSidePanelSettings> = {}): OmoSidePanelSettings {
-  return { ...OmoSidePanelSettingsSchema.parse({}), ...overrides }
+  const parsed = OmoSidePanelSettingsSchema.parse({})
+  // The usage section is the only one that reads credentials and reaches the network, so it is
+  // off unless a test asks for it and hands over its own ports.
+  return { ...parsed, sections: { ...parsed.sections, usage: false }, ...overrides }
 }
 
 describe("side panel component", () => {
@@ -496,3 +502,79 @@ describe("side panel git wiring", () => {
     expect(columnRows(harness.tui).some((row) => row.startsWith("FILES"))).toBe(false)
   })
 })
+
+describe("side panel usage wiring", () => {
+  test("#given the usage section is off #when a session starts #then no credential is ever read", async () => {
+    // given
+    let reads = 0
+    const harness = mounted({
+      loadSettings: () => settings({ enabled: true }),
+      usage: {
+        readCredentials: () => {
+          reads += 1
+          return { auth: {}, pool: undefined }
+        },
+        fetch: () => Promise.reject(new Error("the network must not be touched")),
+      },
+    })
+
+    // when
+    await harness.pi.dispatch("session_start", {}, harness.host)
+    harness.attach()
+
+    // then
+    expect(reads).toBe(0)
+  })
+
+  test("#given the section is on #when a session starts #then credentials are read for the poll", async () => {
+    // given
+    let reads = 0
+    const harness = mounted({
+      loadSettings: () => settings({ enabled: true, sections: { ...allSections(), usage: true } }),
+      usage: {
+        cachePath: join(mkdtempSync(join(tmpdir(), "omo-usage-wiring-")), "usage.json"),
+        readCredentials: () => {
+          reads += 1
+          return { auth: {}, pool: undefined }
+        },
+        fetch: () => Promise.reject(new Error("no provider is configured, so nothing should be fetched")),
+      },
+    })
+
+    // when
+    await harness.pi.dispatch("session_start", {}, harness.host)
+
+    // then
+    expect(reads).toBe(1)
+  })
+
+  test("#given numbers another session cached #when the panel mounts #then they are on screen at once", async () => {
+    // given the cache is shared, so a new window starts with the numbers rather than waiting
+    const cachePath = join(mkdtempSync(join(tmpdir(), "omo-usage-shared-")), "usage.json")
+    writeFileSync(
+      cachePath,
+      JSON.stringify({ claude: { account: "work", updatedAt: 100_000, windows: [{ label: "5h", percent: 44 }] } }),
+    )
+    const harness = mounted({
+      loadSettings: () => settings({ enabled: true, sections: { ...allSections(), usage: true } }),
+      usage: {
+        cachePath,
+        readCredentials: () => ({ auth: {}, pool: undefined }),
+        fetch: () => Promise.reject(new Error("the cached entry is fresh, so nothing should be fetched")),
+      },
+    })
+
+    // when
+    await harness.pi.dispatch("session_start", {}, harness.host)
+    harness.attach()
+
+    // then
+    const rows = columnRows(harness.tui)
+    expect(rows.some((row) => row.startsWith("USAGE"))).toBe(true)
+    expect(rows.some((row) => row.includes("44%"))).toBe(true)
+  })
+})
+
+function allSections(): OmoSidePanelSettings["sections"] {
+  return OmoSidePanelSettingsSchema.parse({}).sections
+}

@@ -178,6 +178,14 @@ default** because it rearranges the whole screen.
 | `usage_poll_seconds` | integer | `150` | Subscription usage refresh interval. The cache is shared across sessions on one machine, so this is per machine, not per session. Minimum `60`. |
 | `sections` | object | all `true` | Per-section switches: `session`, `context`, `usage`, `agents`, `tools`, `files`, `memory`. |
 
+The `usage` section is the only part of omo that reaches the network on its own: it reads the
+subscription windows your plan publishes (`api.anthropic.com/api/oauth/usage` for a Claude
+subscription, `chatgpt.com/backend-api/wham/usage` for Codex) with the same account the session
+is serving from, and nothing else is sent. Set `sections.usage` to `false` to keep the panel
+entirely offline; the poller is never created when it is off. The answers land in one cache file
+per machine (`$XDG_CACHE_HOME/omo-senpi/side-panel-usage.json`), so parallel sessions share both
+the numbers and the backoff instead of each asking on its own.
+
 ```jsonc
 {
   "side_panel": {

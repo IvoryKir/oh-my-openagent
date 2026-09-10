@@ -16,6 +16,10 @@ import type { PanelGitStatus } from "./sections/files"
 import { buildPanelRows } from "./rows"
 import { createPanelStore } from "./store"
 import type { PanelHostSurface, PanelTimerHandle, PanelTimers } from "./types"
+import { createCredentialReader } from "./usage/credentials"
+import { createUsageFetch, type UsageFetch } from "./usage/http"
+import { createUsagePoller, type UsageCredentialSource, type UsagePoller } from "./usage/poller"
+import { usageCachePath } from "./usage/cache"
 import { resolvePanelWidth } from "./width"
 
 export interface SidePanelComponentOptions {
@@ -32,6 +36,12 @@ export interface SidePanelComponentOptions {
   readonly exec?: PanelExec
   readonly findGitRoot?: (cwd: string) => string | undefined
   readonly readGitBranch?: (root: string) => string | undefined
+  /** Ports for the one section that talks to the network, so tests never do. */
+  readonly usage?: {
+    readonly fetch?: UsageFetch
+    readonly readCredentials?: () => UsageCredentialSource
+    readonly cachePath?: string
+  }
 }
 
 const globalTimers: PanelTimers = {
@@ -84,6 +94,7 @@ export function createSidePanelComponent(options: SidePanelComponentOptions = {}
       // mounted; with nothing read yet it reports "no changes" instead of going missing.
       registerPanelCommands(pi, { status: () => git, exec })
       let surface: PanelHostSurface | undefined
+      let usage: UsagePoller | undefined
       let facts: PanelHostFacts = {}
       let startedAt: number | undefined
       let liveTimer: PanelTimerHandle | undefined
@@ -157,6 +168,8 @@ export function createSidePanelComponent(options: SidePanelComponentOptions = {}
 
       const teardown = (): undefined => {
         stopLiveRefresh()
+        usage?.stop()
+        usage = undefined
         surface?.dispose()
         surface = undefined
         return undefined
@@ -188,6 +201,7 @@ export function createSidePanelComponent(options: SidePanelComponentOptions = {}
                   toolRows: TOOL_VISIBLE_ROWS,
                   fileRows: FILE_VISIBLE_ROWS,
                   ...(git === undefined ? {} : { git }),
+                  ...(usage === undefined ? {} : { usage: usage.snapshot() }),
                   home: homedir(),
                 },
                 width,
@@ -201,6 +215,20 @@ export function createSidePanelComponent(options: SidePanelComponentOptions = {}
         gitRoot = locateGit(cwd)
         if (gitRoot !== undefined && exec === undefined) {
           ctx.logger.debug?.("omo-senpi side panel: host exposes no exec, the files section stays empty")
+        }
+        // Nothing reaches the network unless the section that shows it is on.
+        if (settings.sections.usage) {
+          usage = createUsagePoller({
+            fetch: options.usage?.fetch ?? createUsageFetch(),
+            readCredentials: options.usage?.readCredentials ?? createCredentialReader(),
+            cachePath: options.usage?.cachePath ?? usageCachePath(),
+            pollMs: settings.usage_poll_seconds * 1_000,
+            now,
+            timers,
+            onChange: () => surface?.requestRender(),
+            logger: ctx.logger,
+          })
+          usage.start()
         }
         const kind = surface.mount()
         await Promise.all([refreshChildren(), refreshGit(true)])

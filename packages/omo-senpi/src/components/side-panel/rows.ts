@@ -7,8 +7,10 @@ import { buildFileRows, type PanelGitStatus } from "./sections/files"
 import { buildLocationRows, type PanelLocation } from "./sections/location"
 import { buildSessionRows } from "./sections/session"
 import { buildToolRows } from "./sections/tools"
+import { buildUsageRows } from "./sections/usage"
 import type { PanelState } from "./store"
 import type { PanelRow } from "./types"
+import type { PanelUsageSnapshot } from "./usage/types"
 
 export interface PanelRowsInput {
   readonly sections: OmoSidePanelSections
@@ -23,6 +25,8 @@ export interface PanelRowsInput {
   readonly fileRows: number
   readonly git?: PanelGitStatus
   readonly home?: string
+  /** Subscription usage, absent until the poller has something - or when the section is off. */
+  readonly usage?: PanelUsageSnapshot
 }
 
 /**
@@ -48,6 +52,7 @@ export function buildPanelRows(input: PanelRowsInput, width: number): readonly P
         ]
       : [],
     input.sections.context ? [...buildContextRows(input.facts.usage, width)] : [],
+    input.sections.usage && input.usage !== undefined ? [...buildUsageRows(input.usage, input.now, width)] : [],
     input.sections.agents ? [...buildAgentRows(input.state.children, input.now, width)] : [],
     input.sections.tools ? [...buildToolRows(input.state.tools, width, input.toolRows)] : [],
     input.sections.files ? [...buildFileRows(input.git, width, input.fileRows)] : [],
