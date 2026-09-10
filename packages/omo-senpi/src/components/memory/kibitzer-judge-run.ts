@@ -10,6 +10,7 @@ import { classifyJudgeTurn, normalizeGateReason } from "./kibitzer-judge-outcome
 import { buildKibitzerJudgeSpec } from "./kibitzer-judge-spec"
 import { kibitzerCandidatesPayload, renderTranscriptWindow } from "./kibitzer-prompt"
 import { writeKibitzerRunOutcome } from "./kibitzer-run-retention"
+import { loadKibitzerTaskRuntime } from "./kibitzer-task-runtime"
 import type {
   KibitzerGateLaunchInput,
   KibitzerGateLaunchResult,
@@ -76,7 +77,8 @@ export async function runKibitzerJudge(
   })
   const setup = (async (): Promise<ChildHandle> => {
     await writeRunArtifacts(host, input, runDir, runId)
-    const taskRuntime = await import("#omo-task-runtime")
+    // Primed at registration (persona-prime.ts); this awaits that same load, never a fresh resolve.
+    const taskRuntime = await loadKibitzerTaskRuntime()
     const runnerOptions = host.options.createSession === undefined ? {} : { createSession: host.options.createSession }
     const runner = host.options.createRunner?.(runnerOptions)
       ?? taskRuntime.createInProcessJudgeRunner(runnerOptions)
