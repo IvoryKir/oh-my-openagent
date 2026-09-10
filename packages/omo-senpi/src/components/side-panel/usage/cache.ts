@@ -3,15 +3,15 @@ import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 
 import { USAGE_CLAIM_MS, USAGE_TTL_MS } from "../constants"
-import type {
-  PanelAccountState,
-  PanelUsageCacheFile,
-  PanelUsageEntry,
-  PanelUsageProviderKey,
-  PanelUsageWindow,
+import { asRecord, finiteNumber, nonEmptyString, optional } from "../guards"
+import {
+  USAGE_PROVIDER_KEYS,
+  type PanelAccountState,
+  type PanelUsageCacheFile,
+  type PanelUsageEntry,
+  type PanelUsageProviderKey,
+  type PanelUsageWindow,
 } from "./types"
-
-const PROVIDER_KEYS: readonly PanelUsageProviderKey[] = ["claude", "codex"]
 
 /** What the poller needs to know about a provider before deciding to spend a request on it. */
 export interface UsagePollTarget {
@@ -127,13 +127,13 @@ export function sanitizeUsageCache(value: unknown): PanelUsageCacheFile {
   const record = asRecord(value)
   if (record === undefined) return {}
   const entries: { -readonly [K in PanelUsageProviderKey]?: PanelUsageEntry } = {}
-  for (const key of PROVIDER_KEYS) {
+  for (const key of USAGE_PROVIDER_KEYS) {
     const entry = sanitizeEntry(record[key])
     if (entry !== undefined) entries[key] = entry
   }
   const fetchingRecord = asRecord(record["fetching"])
   const fetching: { -readonly [K in PanelUsageProviderKey]?: number } = {}
-  for (const key of PROVIDER_KEYS) {
+  for (const key of USAGE_PROVIDER_KEYS) {
     const claimedAt = fetchingRecord?.[key]
     if (typeof claimedAt === "number" && Number.isFinite(claimedAt)) fetching[key] = claimedAt
   }
@@ -152,27 +152,27 @@ function sanitizeEntry(value: unknown): PanelUsageEntry | undefined {
     windows.push({
       label,
       percent,
-      ...numeric("resetsAt", window?.["resetsAt"]),
-      ...numeric("windowMs", window?.["windowMs"]),
+      ...optional("resetsAt", finiteNumber(window?.["resetsAt"])),
+      ...optional("windowMs", finiteNumber(window?.["windowMs"])),
       ...(window?.["scoped"] === true ? { scoped: true } : {}),
     })
   }
   return {
     ...(windows.length > 0 ? { windows } : {}),
-    ...text("plan", record["plan"]),
-    ...text("account", record["account"]),
-    ...text("pinnedAccount", record["pinnedAccount"]),
+    ...optional("plan", nonEmptyString(record["plan"])),
+    ...optional("account", nonEmptyString(record["account"])),
+    ...optional("pinnedAccount", nonEmptyString(record["pinnedAccount"])),
     ...(isAccountState(record["accountState"]) ? { accountState: record["accountState"] } : {}),
-    ...numeric("updatedAt", record["updatedAt"]),
-    ...text("error", record["error"]),
-    ...numeric("retryAt", record["retryAt"]),
+    ...optional("updatedAt", finiteNumber(record["updatedAt"])),
+    ...optional("error", nonEmptyString(record["error"])),
+    ...optional("retryAt", finiteNumber(record["retryAt"])),
   }
 }
 
 /** All entries except the claim bookkeeping, as a mutable copy. */
 function entriesOf(cache: PanelUsageCacheFile): { -readonly [K in PanelUsageProviderKey]?: PanelUsageEntry } {
   const entries: { -readonly [K in PanelUsageProviderKey]?: PanelUsageEntry } = {}
-  for (const key of PROVIDER_KEYS) {
+  for (const key of USAGE_PROVIDER_KEYS) {
     const entry = cache[key]
     if (entry !== undefined) entries[key] = entry
   }
@@ -183,18 +183,6 @@ function isAccountState(value: unknown): value is PanelAccountState {
   return value === "ok" || value === "cooldown" || value === "stale"
 }
 
-function numeric<K extends string>(key: K, value: unknown): Partial<Record<K, number>> {
-  return typeof value === "number" && Number.isFinite(value) ? ({ [key]: value } as Record<K, number>) : {}
-}
 
-function text<K extends string>(key: K, value: unknown): Partial<Record<K, string>> {
-  return typeof value === "string" && value !== "" ? ({ [key]: value } as Record<K, string>) : {}
-}
 
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return isRecord(value) ? value : undefined
-}
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}

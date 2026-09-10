@@ -1,4 +1,5 @@
 import { FIVE_HOUR_MS, WEEK_MS } from "../constants"
+import { asArray, asRecord, optional } from "../guards"
 import type { PanelUsageEntry, PanelUsageWindow } from "./types"
 
 /**
@@ -20,7 +21,7 @@ export function parseClaudeUsage(payload: unknown, now: number): PanelUsageEntry
       label: claudeLabel(kind, limit),
       percent,
       windowMs: session ? FIVE_HOUR_MS : WEEK_MS,
-      ...present("resetsAt", parseInstant(limit["resets_at"])),
+      ...optional("resetsAt", parseInstant(limit["resets_at"])),
       ...(kind === "weekly_scoped" ? { scoped: true } : {}),
     })
   }
@@ -32,7 +33,7 @@ export function parseClaudeUsage(payload: unknown, now: number): PanelUsageEntry
       const entry = asRecord(data?.[key])
       const utilization = entry?.["utilization"]
       if (typeof utilization !== "number") continue
-      windows.push({ label, percent: utilization, windowMs, ...present("resetsAt", parseInstant(entry?.["resets_at"])) })
+      windows.push({ label, percent: utilization, windowMs, ...optional("resetsAt", parseInstant(entry?.["resets_at"])) })
     }
   }
   return { windows, updatedAt: now }
@@ -103,18 +104,6 @@ function parseInstant(value: unknown): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
-function present<K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> {
-  return value === undefined ? {} : ({ [key]: value } as Record<K, V>)
-}
 
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return isRecord(value) ? value : undefined
-}
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
 
-function asArray(value: unknown): readonly unknown[] {
-  return Array.isArray(value) ? value : []
-}

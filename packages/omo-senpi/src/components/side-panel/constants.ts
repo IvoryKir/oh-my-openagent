@@ -27,9 +27,6 @@ export const MIN_TRANSCRIPT_COLUMNS = 60
 export const PANEL_MIN_COLUMNS = 32
 export const PANEL_MAX_COLUMNS = 80
 
-/** Re-attach attempts are throttled: mode switches can fire several events at once. */
-export const REATTACH_THROTTLE_MS = 1_000
-
 /**
  * How many delegated children the column keeps. Twelve rows already claim a quarter of a
  * tall terminal, and a running child is never the one evicted.

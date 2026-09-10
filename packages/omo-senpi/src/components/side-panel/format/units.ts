@@ -11,15 +11,6 @@ export function compactTokens(value: number): string {
   return `${trim(rounded / 1_000_000)}M`
 }
 
-/** `2048` -> `2.0KB`. Binary units, because these are file sizes. */
-export function compactBytes(value: number): string {
-  if (!Number.isFinite(value) || value < 0) return "0B"
-  const rounded = Math.round(value)
-  if (rounded < 1024) return `${rounded}B`
-  const kilobytes = trim(rounded / 1024)
-  if (Number.parseFloat(kilobytes) < 1024) return `${kilobytes}KB`
-  return `${trim(rounded / (1024 * 1024))}MB`
-}
 
 /** Elapsed time as `12s`, `4m30`, `2h05`. Fixed width per magnitude so rows stay aligned. */
 export function duration(milliseconds: number): string {

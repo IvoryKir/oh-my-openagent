@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { compactBytes, compactCost, compactTokens, duration } from "./units"
+import { compactCost, compactTokens, duration } from "./units"
 
 describe("compactTokens", () => {
   test("#given values across magnitudes #when formatted #then the unit follows the size", () => {
@@ -26,18 +26,6 @@ describe("compactTokens", () => {
   })
 })
 
-describe("compactBytes", () => {
-  test("#given byte counts #when formatted #then binary units are used", () => {
-    // given
-    const values = [0, 512, 1_024, 2_048, 1_048_576, 5_242_880]
-
-    // when
-    const rendered = values.map(compactBytes)
-
-    // then
-    expect(rendered).toEqual(["0B", "512B", "1KB", "2KB", "1MB", "5MB"])
-  })
-})
 
 describe("duration", () => {
   test("#given elapsed spans #when formatted #then each magnitude keeps a fixed shape", () => {

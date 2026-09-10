@@ -7,6 +7,7 @@ import { loadSenpiOmoConfig } from "../config-resolution"
 import { FILE_VISIBLE_ROWS, GIT_REFRESH_FLOOR_MS, LIVE_REFRESH_MS, SIDE_PANEL_FLAG, TOOL_VISIBLE_ROWS } from "./constants"
 import { openFileDiff, registerPanelCommands } from "./commands"
 import { panelContextFrom } from "./context"
+import { asRecord } from "./guards"
 import { panelFactsFrom, type PanelHostFacts } from "./data/facts"
 import { childOutputRows } from "./data/child-output"
 import { panelChildrenFromRecords, type PanelTaskRecord } from "./data/task-records"
@@ -320,8 +321,8 @@ function isPanelEnabled(settings: OmoSidePanelSettings, ctx: ComponentContext): 
 }
 
 function toolCallFrom(payload: unknown, at: number): { name: string; detail?: string; at: number } | undefined {
-  if (typeof payload !== "object" || payload === null) return undefined
-  const record = payload as Record<string, unknown>
+  const record = asRecord(payload)
+  if (record === undefined) return undefined
   const name = record["toolName"] ?? record["name"]
   if (typeof name !== "string" || name === "") return undefined
   const detail = toolDetail(record["args"] ?? record["input"])
@@ -330,8 +331,8 @@ function toolCallFrom(payload: unknown, at: number): { name: string; detail?: st
 
 /** One short, recognisable argument: the path or command the call is about. */
 function toolDetail(args: unknown): string | undefined {
-  if (typeof args !== "object" || args === null) return undefined
-  const record = args as Record<string, unknown>
+  const record = asRecord(args)
+  if (record === undefined) return undefined
   for (const key of ["file_path", "path", "command", "pattern", "query", "url"]) {
     const value = record[key]
     if (typeof value === "string" && value !== "") return value

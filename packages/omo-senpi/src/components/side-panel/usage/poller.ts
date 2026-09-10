@@ -5,6 +5,7 @@ import {
   CODEX_USAGE_URL,
   USAGE_MAX_BACKOFF_MS,
 } from "../constants"
+import { asRecord } from "../guards"
 import type { PanelTimerHandle, PanelTimers } from "../types"
 import { resolveUsageCredential, type PanelUsageCredential } from "./accounts"
 import {
@@ -17,7 +18,7 @@ import {
 } from "./cache"
 import { describeUsageError, UsageHttpError, type UsageFetch } from "./http"
 import { codexAccountId, parseClaudeUsage, parseCodexUsage } from "./parse"
-import type { PanelUsageEntry, PanelUsageProviderKey, PanelUsageSnapshot } from "./types"
+import { USAGE_PROVIDER_KEYS, type PanelUsageEntry, type PanelUsageProviderKey, type PanelUsageSnapshot } from "./types"
 
 /** The credential files, already parsed. Injected so tests never touch a home directory. */
 export interface UsageCredentialSource {
@@ -54,10 +55,14 @@ interface ProviderPlan {
   readonly configured: boolean
 }
 
-const PROVIDERS: readonly { readonly key: PanelUsageProviderKey; readonly provider: string }[] = [
-  { key: "claude", provider: CLAUDE_PROVIDER },
-  { key: "codex", provider: CODEX_PROVIDER },
-]
+/** Which senpi credential each usage endpoint speaks for. */
+const PROVIDER_IDS: Readonly<Record<PanelUsageProviderKey, string>> = {
+  claude: CLAUDE_PROVIDER,
+  codex: CODEX_PROVIDER,
+}
+
+/** Poll intervals to wait before asking again about a credential only a `/login` can fix. */
+const SIGNED_OUT_RETRY_INTERVALS = 5
 
 /**
  * Polls subscription usage into a machine-wide cache and republishes it to the column.
@@ -84,20 +89,24 @@ export function createUsagePoller(deps: UsagePollerDeps): UsagePoller {
   const plans = (): readonly ProviderPlan[] => {
     const { auth, pool } = deps.readCredentials()
     const now = deps.now()
-    return PROVIDERS.map(({ key, provider }) => ({
-      key,
-      provider,
-      credential: resolveUsageCredential(auth, pool, provider, now),
-      configured: hasProvider(auth, provider),
-    }))
+    return USAGE_PROVIDER_KEYS.map((key) => {
+      const provider = PROVIDER_IDS[key]
+      return {
+        key,
+        provider,
+        credential: resolveUsageCredential(auth, pool, provider, now),
+        configured: hasProvider(auth, provider),
+      }
+    })
   }
 
   const readProvider = async (plan: ProviderPlan): Promise<PanelUsageEntry> => {
     const credential = plan.credential
     if (credential === undefined) {
       // A provider the user is signed into but whose token is unusable is worth saying out
-      // loud; one they never configured is not, and never reaches this branch.
-      return { error: "auth stale - run /login", retryAt: deps.now() + 5 * deps.pollMs }
+      // loud; one they never configured is not, and never reaches this branch. Only a /login
+      // fixes this, and that is not something to re-check on the ordinary cadence.
+      return { error: "auth stale - run /login", retryAt: deps.now() + SIGNED_OUT_RETRY_INTERVALS * deps.pollMs }
     }
     try {
       const entry = await fetchProvider(deps.fetch, plan.key, credential.access, deps.now())
@@ -204,11 +213,14 @@ function backoffFor(error: unknown, pollMs: number): number {
   return Math.min(requested, USAGE_MAX_BACKOFF_MS)
 }
 
+/** The cache without its claim bookkeeping: what is on screen is only ever the numbers. */
 function snapshotOf(cache: PanelUsageSnapshot): PanelUsageSnapshot {
-  return {
-    ...(cache.claude === undefined ? {} : { claude: cache.claude }),
-    ...(cache.codex === undefined ? {} : { codex: cache.codex }),
+  const entries: { -readonly [K in PanelUsageProviderKey]?: PanelUsageEntry } = {}
+  for (const key of USAGE_PROVIDER_KEYS) {
+    const entry = cache[key]
+    if (entry !== undefined) entries[key] = entry
   }
+  return entries
 }
 
 /**
@@ -225,6 +237,6 @@ function stableStringify(value: unknown): string {
 }
 
 function hasProvider(auth: unknown, provider: string): boolean {
-  if (typeof auth !== "object" || auth === null || Array.isArray(auth)) return false
-  return Object.hasOwn(auth, provider)
+  const record = asRecord(auth)
+  return record !== undefined && Object.hasOwn(record, provider)
 }

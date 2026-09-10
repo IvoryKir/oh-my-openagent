@@ -1,3 +1,4 @@
+import { finiteNumber, isRecord, optional } from "../guards"
 import type { PanelContextUsage } from "../sections/context"
 import type { PanelSessionTotals } from "../sections/session"
 
@@ -62,9 +63,9 @@ function usageTotals(manager: unknown): PanelSessionTotals | undefined {
   return {
     input,
     output,
-    cacheRead: numberOr(totals["cacheRead"], 0),
-    cacheWrite: numberOr(totals["cacheWrite"], 0),
-    cost: numberOr(totals["cost"], 0),
+    cacheRead: finiteNumber(totals["cacheRead"]) ?? 0,
+    cacheWrite: finiteNumber(totals["cacheWrite"]) ?? 0,
+    cost: finiteNumber(totals["cost"]) ?? 0,
     ...(typeof hitRate === "number" ? { latestCacheHitRate: hitRate } : {}),
   }
 }
@@ -86,14 +87,5 @@ function call(owner: unknown, method: string): unknown {
   }
 }
 
-function optional<K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> {
-  return value === undefined ? {} : ({ [key]: value } as Record<K, V>)
-}
 
-function numberOr(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback
-}
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}

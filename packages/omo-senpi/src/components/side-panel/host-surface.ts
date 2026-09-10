@@ -1,4 +1,5 @@
 import { createPanelBody } from "./body"
+import { isRecord } from "./guards"
 import { parsePanelActionUrl } from "./links"
 import {
   MIN_TRANSCRIPT_COLUMNS,
@@ -223,9 +224,6 @@ function panelThemeFrom(value: unknown): PanelTheme | undefined {
   }
 }
 
-function isRecord(value: unknown): value is Record<PropertyKey, unknown> {
-  return typeof value === "object" && value !== null
-}
 
 /** A pi-tui viewport renderer that exposes the public layout seam. */
 function isHostTui(value: unknown): value is PanelHostTui {

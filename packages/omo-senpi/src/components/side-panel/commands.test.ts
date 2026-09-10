@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { FakeExtensionAPI } from "../../../test-support/fake-extension-api"
-import { fileOptionLabel, registerPanelCommands, SIDE_PANEL_DIFF_COMMAND } from "./commands"
+import { registerPanelCommands, SIDE_PANEL_DIFF_COMMAND } from "./commands"
 import type { PanelExec } from "./git/read"
 import type { PanelGitStatus } from "./sections/files"
 

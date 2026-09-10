@@ -39,7 +39,7 @@ export function registerPanelCommands(pi: SenpiExtensionAPI, deps: PanelCommandD
   })
 }
 
-export function fileOptionLabel(file: PanelGitEntry): string {
+function fileOptionLabel(file: PanelGitEntry): string {
   const delta = file.added === undefined && file.removed === undefined ? "" : `  +${file.added ?? 0}/-${file.removed ?? 0}`
   return `${file.xy} ${file.path}${delta}`
 }

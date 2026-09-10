@@ -1,4 +1,5 @@
 import { MIN_ACCESS_TOKEN_LENGTH } from "../constants"
+import { asArray, asRecord, nonEmptyString } from "../guards"
 import type { PanelAccountState } from "./types"
 
 /**
@@ -44,7 +45,7 @@ export function resolveUsageCredential(
     .filter((entry): entry is Record<string, unknown> => entry !== undefined)
 
   const health = (account: Record<string, unknown>): PanelAccountState => {
-    const name = stringOf(account["name"])
+    const name = nonEmptyString(account["name"])
     const slot = name === undefined ? undefined : slots[name]
     const until = slot?.blockedUntil ?? slot?.cooldownUntil
     if (typeof until === "number" && until > now) return "cooldown"
@@ -54,17 +55,17 @@ export function resolveUsageCredential(
   }
 
   if (accounts.length > 0) {
-    const pinnedName = stringOf(node["pinned"])
-    const pinned = accounts.find((account) => stringOf(account["name"]) === pinnedName) ?? accounts[0]
+    const pinnedName = nonEmptyString(node["pinned"])
+    const pinned = accounts.find((account) => nonEmptyString(account["name"]) === pinnedName) ?? accounts[0]
     const healthy = accounts.find((account) => health(account) === "ok" && usableToken(account["access"]))
     // A pinned slot that is merely stale still serves: the endpoint's 401 is what lets the
     // column say "auth stale - run /login", whereas offering nothing says nothing at all.
     const pinnedServes = pinned !== undefined && health(pinned) === "ok" && usableToken(pinned["access"])
     const serving = pinnedServes ? pinned : (healthy ?? (usableToken(pinned?.["access"]) ? pinned : undefined))
-    const access = serving === undefined ? undefined : stringOf(serving["access"])
+    const access = serving === undefined ? undefined : nonEmptyString(serving["access"])
     if (serving !== undefined && access !== undefined && usableToken(access)) {
-      const name = stringOf(serving["name"])
-      const pinnedLabel = pinned === undefined ? undefined : stringOf(pinned["name"])
+      const name = nonEmptyString(serving["name"])
+      const pinnedLabel = pinned === undefined ? undefined : nonEmptyString(pinned["name"])
       return {
         access,
         state: health(serving),
@@ -75,7 +76,7 @@ export function resolveUsageCredential(
   }
 
   // A single-account credential carries the token at the top level and has no name to print.
-  const flat = stringOf(node["access"])
+  const flat = nonEmptyString(node["access"])
   if (flat !== undefined && usableToken(flat)) {
     const expires = node["expires"]
     return { access: flat, state: typeof expires === "number" && expires <= now ? "stale" : "ok" }
@@ -106,18 +107,6 @@ function usableToken(value: unknown): boolean {
   return typeof value === "string" && value.length >= MIN_ACCESS_TOKEN_LENGTH
 }
 
-function stringOf(value: unknown): string | undefined {
-  return typeof value === "string" && value !== "" ? value : undefined
-}
 
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return isRecord(value) ? value : undefined
-}
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
 
-function asArray(value: unknown): readonly unknown[] {
-  return Array.isArray(value) ? value : []
-}

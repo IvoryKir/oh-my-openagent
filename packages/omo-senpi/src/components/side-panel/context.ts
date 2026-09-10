@@ -1,3 +1,4 @@
+import { isRecord } from "./guards"
 import type { PanelHostContext, PanelUi } from "./types"
 
 /**
@@ -50,6 +51,3 @@ export function panelContextFrom(value: unknown): PanelHostContext | undefined {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}

@@ -5,8 +5,14 @@
  * for a cache that several sessions share rather than for a single session's memory.
  */
 
-/** The two providers that publish a usage endpoint; the key is also the cache key. */
-export type PanelUsageProviderKey = "claude" | "codex"
+/**
+ * The providers that publish a usage endpoint; a key is also the cache key. The type is derived
+ * from the list rather than written twice, and the list is the only place a third provider would
+ * be added - it used to be spelled out separately in the cache, the poller and the section.
+ */
+export const USAGE_PROVIDER_KEYS = ["claude", "codex"] as const
+
+export type PanelUsageProviderKey = (typeof USAGE_PROVIDER_KEYS)[number]
 
 /** Health of the account the numbers came from, as far as the credential pool knows. */
 export type PanelAccountState = "ok" | "cooldown" | "stale"

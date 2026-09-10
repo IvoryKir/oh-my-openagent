@@ -1,7 +1,12 @@
 import { bar } from "../format/bars"
 import { duration } from "../format/units"
 import type { PanelRow } from "../types"
-import type { PanelUsageEntry, PanelUsageProviderKey, PanelUsageSnapshot, PanelUsageWindow } from "../usage/types"
+import {
+  USAGE_PROVIDER_KEYS,
+  type PanelUsageEntry,
+  type PanelUsageSnapshot,
+  type PanelUsageWindow,
+} from "../usage/types"
 import { barWidth, field, heading } from "./layout"
 
 /** Windows drawn per provider. Anthropic publishes three; a fourth is already more column than it is worth. */
@@ -9,8 +14,6 @@ const WINDOW_ROWS = 4
 
 /** "100%" is the widest a percentage gets; padding to it keeps the numbers under each other. */
 const PERCENT_WIDTH = 4
-
-const PROVIDER_ORDER: readonly PanelUsageProviderKey[] = ["claude", "codex"]
 
 /**
  * Subscription usage: how much of each rolling window the serving account has spent.
@@ -22,7 +25,7 @@ const PROVIDER_ORDER: readonly PanelUsageProviderKey[] = ["claude", "codex"]
  */
 export function buildUsageRows(usage: PanelUsageSnapshot, now: number, width: number): readonly PanelRow[] {
   if (width <= 0) return []
-  const present = PROVIDER_ORDER.filter((key) => usage[key] !== undefined)
+  const present = USAGE_PROVIDER_KEYS.filter((key) => usage[key] !== undefined)
   if (present.length === 0) return []
 
   // One tail for the whole section, so every bar is the same length and the percentages form a
