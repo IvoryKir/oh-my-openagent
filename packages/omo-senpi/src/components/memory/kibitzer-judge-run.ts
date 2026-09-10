@@ -64,14 +64,7 @@ export async function runKibitzerJudge(
     deadlineTimer.unref?.()
   })
   const setup = (async (): Promise<ChildHandle> => {
-    await mkdir(runDir, { recursive: true, mode: 0o700 })
-    // Auditable artifacts, NOT inputs: the child receives both inline in its prompt and holds no
-    // read tool. The run dir is kept after the run so a live or finished judge can be inspected.
-    await Promise.all([
-      writeFile(join(runDir, "candidates.json"), `${JSON.stringify(kibitzerCandidatesPayload(input), null, 2)}\n`, { encoding: "utf8", mode: 0o600 }),
-      writeFile(join(runDir, "transcript-window.txt"), renderTranscriptWindow(input.transcript), { encoding: "utf8", mode: 0o600 }),
-    ])
-
+    await writeRunArtifacts(host, input, runDir, runId)
     const taskRuntime = await import("#omo-task-runtime")
     const runnerOptions = host.options.createSession === undefined ? {} : { createSession: host.options.createSession }
     const runner = host.options.createRunner?.(runnerOptions)
@@ -147,6 +140,21 @@ export async function runKibitzerJudge(
       host.handle = undefined
       handle.dispose()
     }
+  }
+}
+
+// Auditable artifacts, NOT inputs: the child receives both inline in its prompt and holds no read
+// tool. The run dir is kept after the run so a live or finished judge can be inspected. A write
+// that fails is therefore logged and skipped; only what the child consumes may fail the fire.
+async function writeRunArtifacts(host: KibitzerJudgeRunHost, input: KibitzerGateLaunchInput, runDir: string, runId: string): Promise<void> {
+  try {
+    await mkdir(runDir, { recursive: true, mode: 0o700 })
+    await Promise.all([
+      writeFile(join(runDir, "candidates.json"), `${JSON.stringify(kibitzerCandidatesPayload(input), null, 2)}\n`, { encoding: "utf8", mode: 0o600 }),
+      writeFile(join(runDir, "transcript-window.txt"), renderTranscriptWindow(input.transcript), { encoding: "utf8", mode: 0o600 }),
+    ])
+  } catch (error) {
+    host.options.logger?.warn("kibitzer gate run artifacts skipped", { runId, runDir, error: normalizeGateReason(describe(error)) })
   }
 }
 
