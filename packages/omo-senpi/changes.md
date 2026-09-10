@@ -1,3 +1,13 @@
+## 2026-09-10 — Stop failing Kibitzer fires for reasons that are not failures
+
+`Kibitzer gate failed` kept appearing intermittently on beta.51 after the persona prime shipped, from three producers that were not real gate failures (#8052, #7963).
+
+A judge that answers only through `nudge` and then stops without prose is a completed run. senpi's empty-assistant recovery retries one invisible stop and settles the second as `Model returned an empty response twice`, which the gate reported as `child_failed` even after accepted nudges. The nudge tool result now carries `terminate: true` once the run's `max_items` is reached (also on a rejection at the cap), so the agent loop ends the turn on the tool batch and the model never has to answer with nothing; as the floor for runs that stop below the cap, `classifyJudgeTurn` treats that settled message as `completed` when nudges were accepted and `empty` when none were. Accepted nudges are delivered in both cases.
+
+Run-dir artifacts (`candidates.json`, `transcript-window.txt`) are auditable output the child never reads; a write that fails now logs `kibitzer gate run artifacts skipped` and the fire continues instead of ending as `session_create_failed`. A persona read that fails at fire time is reported as `persona_unavailable` with the asset filename in the reason. The `#omo-task-runtime` module is primed at memory-component registration beside the four personas (`omo-senpi memory boot asset unavailable` names a module that cannot load), and a fire awaits that same load instead of resolving the specifier against the install tree at fire time.
+
+The notice policy is unchanged: one notice per session after three consecutive diagnostic failures (PR #8033), which beta users receive with the next release.
+
 ## 2026-09-09 — Pin persona assets to the payload a process started from
 
 The memory component read each persona markdown from beside the bundle at child-launch time, so the asset had to still be on disk, under its current name, every time a gate fired. The install tree is mutable while a session runs: a global install replaces it in place and the omob launcher rebuilds and prunes runtime dirs. After the Kibitzer rename shipped, sessions whose process had loaded the pre-rename bundle kept opening `extensions/memorian-persona.md` in the replaced tree and every recall gate died with `session_create_failed` (ENOENT). The same shape hit omob runtime dirs on 2026-09-07 through a prune.
