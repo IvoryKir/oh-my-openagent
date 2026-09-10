@@ -1,5 +1,6 @@
 import type { PanelOverlayUi, PanelRow } from "../types"
-import { createTextPopup } from "./text-popup"
+import { createTextPopup, type PopupComponent } from "./text-popup"
+import { parsePanelWheelEvent, WHEEL_ROWS } from "./wheel"
 
 /** The popup owns its own height; a percentage cap here would fight it and cost the bottom border. */
 const OVERLAY_OPTIONS: Record<string, unknown> = {
@@ -17,9 +18,34 @@ export async function openPanelViewer(ui: PanelOverlayUi, title: string, rows: r
     ui.notify(rows.map((row) => row.text).join("\n"), "info")
     return
   }
-  await ui.custom(
-    (tui, theme, _keybindings, done) =>
-      createTextPopup(tui, theme, { title, rows: () => rows, close: () => done(undefined) }),
-    OVERLAY_OPTIONS,
-  )
+  let stopWheel: (() => void) | undefined
+  try {
+    await ui.custom((tui, theme, _keybindings, done) => {
+      const popup = createTextPopup(tui, theme, { title, rows: () => rows, close: () => done(undefined) })
+      stopWheel = listenForWheel(ui, popup, tui)
+      return popup
+    }, OVERLAY_OPTIONS)
+  } finally {
+    stopWheel?.()
+  }
+}
+
+/**
+ * While the viewer is open the wheel belongs to it: every wheel report is claimed, so the
+ * transcript behind stops scrolling under a popup the user is reading.
+ */
+function listenForWheel(
+  ui: PanelOverlayUi,
+  popup: PopupComponent,
+  tui: { requestRender(force?: boolean): void },
+): (() => void) | undefined {
+  return ui.onTerminalInput?.((data) => {
+    const wheel = parsePanelWheelEvent(data)
+    if (wheel === undefined) return undefined
+    if (wheel.press) {
+      popup.scrollBy(wheel.direction * WHEEL_ROWS)
+      tui.requestRender()
+    }
+    return { consume: true }
+  })
 }

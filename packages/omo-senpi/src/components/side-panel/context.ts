@@ -14,6 +14,7 @@ export function panelContextFrom(value: unknown): PanelHostContext | undefined {
   if (typeof setWidget !== "function") return undefined
   const notify = ui["notify"]
   const custom = ui["custom"]
+  const onTerminalInput = ui["onTerminalInput"]
   const port: PanelUi = {
     setWidget(key, content, options) {
       Reflect.apply(setWidget, ui, [key, content, options])
@@ -22,6 +23,16 @@ export function panelContextFrom(value: unknown): PanelHostContext | undefined {
       if (typeof notify !== "function") return
       Reflect.apply(notify, ui, [message, type])
     },
+    // Raw input is how an open viewer claims the wheel; without it the wheel keeps scrolling
+    // whatever sits behind the viewer, exactly as it did before.
+    ...(typeof onTerminalInput === "function"
+      ? {
+          onTerminalInput(handler) {
+            const stop: unknown = Reflect.apply(onTerminalInput, ui, [handler])
+            return typeof stop === "function" ? (stop as () => void) : (): void => {}
+          },
+        }
+      : {}),
     // The overlay seam is what a clicked row needs; a host without it degrades to `notify`.
     ...(typeof custom === "function"
       ? {

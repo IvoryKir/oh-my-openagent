@@ -8,6 +8,7 @@ import { FILE_VISIBLE_ROWS, GIT_REFRESH_FLOOR_MS, LIVE_REFRESH_MS, SIDE_PANEL_FL
 import { openFileDiff, registerPanelCommands } from "./commands"
 import { panelContextFrom } from "./context"
 import { panelFactsFrom, type PanelHostFacts } from "./data/facts"
+import { childOutputRows } from "./data/child-output"
 import { panelChildrenFromRecords, type PanelTaskRecord } from "./data/task-records"
 import { readGitStatus, type PanelExec } from "./git/read"
 import { findGitRoot, readGitBranch } from "./git/repo"
@@ -18,7 +19,7 @@ import { buildAgentCardRows } from "./sections/agents"
 import type { PanelGitStatus } from "./sections/files"
 import { buildPanelRows } from "./rows"
 import { createPanelStore } from "./store"
-import type { PanelHostSurface, PanelTimerHandle, PanelTimers, PanelUi } from "./types"
+import type { PanelHostSurface, PanelRow, PanelTimerHandle, PanelTimers, PanelUi } from "./types"
 import { createCredentialReader } from "./usage/credentials"
 import { createUsageFetch, type UsageFetch } from "./usage/http"
 import { createUsagePoller, type UsageCredentialSource, type UsagePoller } from "./usage/poller"
@@ -35,6 +36,8 @@ export interface SidePanelComponentOptions {
   readonly now?: () => number
   /** Delegated children come from the task engine's own store; injected here for tests. */
   readonly readTaskRecords?: (cwd: string) => readonly PanelTaskRecord[] | Promise<readonly PanelTaskRecord[]>
+  /** A clicked child shows its own work; injected so tests never read a state dir. */
+  readonly readChildOutput?: (cwd: string, taskId: string) => Promise<readonly PanelRow[]>
   /** Injectable so the git reads are exercised without spawning anything. */
   readonly exec?: PanelExec
   readonly findGitRoot?: (cwd: string) => string | undefined
@@ -78,6 +81,7 @@ export function createSidePanelComponent(options: SidePanelComponentOptions = {}
 
       const store = createPanelStore(now)
       const readTaskRecords = options.readTaskRecords ?? createRecordReader()
+      const readChildOutput = options.readChildOutput ?? createChildOutputReader()
       const locateGit = options.findGitRoot ?? findGitRoot
       const branchOf = options.readGitBranch ?? readGitBranch
       // Bound to the host so the method keeps its own receiver, the way the memory palace
@@ -182,7 +186,10 @@ export function createSidePanelComponent(options: SidePanelComponentOptions = {}
         }
         const child = store.state().children.find((entry) => entry.id === action.id)
         if (child === undefined) return
-        await openPanelViewer(ui, `${child.name}  (agent)`, buildAgentCardRows(child, now()))
+        // The card is the header; what the child actually did is the body, and the point.
+        const output = await readChildOutput(cwd, child.id)
+        const rows: readonly PanelRow[] = [...buildAgentCardRows(child, now()), { text: "" }, ...output]
+        await openPanelViewer(ui, `${child.name}  (agent)`, rows)
       }
 
       const refresh = async (eventCtx: unknown): Promise<undefined> => {
@@ -357,6 +364,25 @@ function createRecordReader(): (cwd: string) => Promise<readonly PanelTaskRecord
       storeCwd = cwd
     }
     return store.list().records
+  }
+}
+
+/**
+ * Reads a child's transcript through the task runtime alias, which the build keeps external, so
+ * the entry bundle does not gain the task module graph for one viewer.
+ */
+function createChildOutputReader(): (cwd: string, taskId: string) => Promise<readonly PanelRow[]> {
+  return async (cwd, taskId) => {
+    const runtime = await import("#omo-task-runtime")
+    const loaded = loadSenpiOmoConfig({ cwd }).config
+    const stateDir = runtime.resolveStateDir({
+      project_dir: cwd,
+      ...(loaded.task === undefined ? {} : { task: loaded.task }),
+    })
+    const result = runtime.defaultTranscriptReader({ taskId, stateDir })
+    // "full" on purpose: a click asks for the whole thing, not the tail a tool call would take.
+    const rendered = runtime.renderTranscript(result.entries, { mode: "full", tailLines: 0 })
+    return childOutputRows(rendered.text, rendered.truncated)
   }
 }
 

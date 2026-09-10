@@ -72,3 +72,45 @@ characters that would otherwise end the escape sequence early.
 - `bun run test:senpi` - exit 0.
 - `bun run typecheck` (root, what CI runs) - exit 0.
 - Component suite: 264 tests, 0 fail.
+
+---
+
+## FOLLOW-UP: THE WHEEL, AND WHAT A CLICKED AGENT SHOWS
+
+Two things the first pass got wrong, both reported from the live stand.
+
+### The wheel did nothing in the viewer
+
+`routeWheel` sends a wheel event to whatever scroll view sits under the pointer **in the host's
+layout**, and an overlay is composited outside that layout - so the wheel was scrolling the
+transcript behind the popup while the popup itself ignored it. The fix uses public API:
+`ui.onTerminalInput` (senpi hands the handler straight to pi-tui's `addInputListener`, whose
+listeners run BEFORE the renderer's own input handling and whose `{consume: true}` is honoured), so
+while a viewer is open every wheel report is decoded, applied to the viewer, and claimed.
+
+Measured live in an isolated repo whose only change was a 200-line rewrite
+(`capture-wheel-scroll-200x50.txt`):
+
+| step | viewer position |
+|---|---|
+| opened | `1-32/405` |
+| three notches down | `10-41/405` |
+| two notches up | `4-35/405` |
+
+Three rows per notch, exactly as configured, and the transcript line behind the popup was
+byte-identical before and after - so nothing scrolled underneath.
+
+### A clicked agent showed only metadata
+
+The card carried status, elapsed, category, turns, tokens, cost and id - not one word of what the
+child actually did. It now shows the card as a header followed by the child's whole recorded
+transcript, rendered by the task engine itself (`defaultTranscriptReader` + `renderTranscript` with
+`mode: "full"`), reached through the `#omo-task-runtime` alias so the entry bundle keeps none of the
+task graph.
+
+**Not driven live**, and this is the one gap worth knowing about: the panel lists a child only when
+a task record names the running session as its parent, so a live proof needs a real delegated child,
+and spawning one to click on it costs a real model turn. What backs it instead is an integration
+test that is not a mock - it writes a child's event log into a real state dir, reads it back through
+the engine's own reader and renderer, and asserts the rows a click would show, including the
+"nothing recorded" case. The dispatch either side of that is unit-tested.

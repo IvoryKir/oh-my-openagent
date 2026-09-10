@@ -78,6 +78,11 @@ export type PanelPopupFactory = (
  */
 export interface PanelOverlayUi {
   notify(message: string, type?: "info" | "warning" | "error"): void
+  /**
+   * Raw terminal input, interactive mode only. The host runs these listeners before its own
+   * handling and honours `consume`, which is what lets an open viewer claim the wheel.
+   */
+  onTerminalInput?(handler: (data: string) => { consume?: boolean; data?: string } | undefined): () => void
   /** Absent on hosts without the overlay seam; the viewers degrade to a notification. */
   custom?(factory: PanelPopupFactory, options?: Record<string, unknown>): Promise<unknown>
 }

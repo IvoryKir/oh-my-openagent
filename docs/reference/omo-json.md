@@ -181,10 +181,17 @@ default** because it rearranges the whole screen.
 
 Rows are clickable because the fullscreen renderer already captures the mouse and activates OSC 8
 hyperlinks; the panel paints its rows as links to a private scheme and claims the renderer's URL
-callback while it is mounted, handing every other URL straight back. Clicking a file opens its diff
-and clicking a subagent opens its card - the same viewers `/side-panel-diff` reaches by name. Text
-selection is untouched: the renderer only activates a link on a press and release inside one cell
-with no drag, so dragging still selects and double or triple clicks still take a word or a line.
+callback while it is mounted, handing every other URL straight back. Clicking a file opens its diff;
+clicking a subagent opens its card followed by everything that child recorded, rendered by the task
+engine itself - the same text `task_output` would give you. `/side-panel-diff` reaches the file
+viewer by name.
+
+The viewer scrolls with the wheel as well as with the arrow keys, and while it is open the wheel
+belongs to it: the host routes a wheel event to whatever sits under the pointer in its layout, and
+an overlay is not part of that layout, so without this the wheel would scroll the transcript behind
+the popup instead. Text selection is untouched either way, because the renderer activates a link
+only on a press and release inside one cell with no drag - dragging still selects, and double or
+triple clicks still take a word or a line.
 
 The `usage` section is the only part of omo that reaches the network on its own: it reads the
 subscription windows your plan publishes (`api.anthropic.com/api/oauth/usage` for a Claude

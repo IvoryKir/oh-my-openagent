@@ -5,6 +5,8 @@ import { clampScroll, popupBudget, POPUP_CHROME_ROWS } from "./viewport"
 export interface PopupComponent {
   render(width: number): string[]
   handleInput(data: string): void
+  /** Move the view by `rows`, clamped on the next paint. Used by the wheel. */
+  scrollBy(rows: number): void
   invalidate(): void
 }
 
@@ -46,7 +48,7 @@ export function createTextPopup(tui: PopupTui, theme: PanelTheme | undefined, op
       }
       const hint =
         body.length > budget.body
-          ? `${scroll + 1}-${Math.min(body.length, scroll + budget.body)}/${body.length}  ↑↓ scroll  esc close`
+          ? `${scroll + 1}-${Math.min(body.length, scroll + budget.body)}/${body.length}  ↑↓/wheel  esc close`
           : "esc close"
       lines.push(frame(paint, padVisible(paint("dim", hint.padStart(inner).slice(0, inner)), inner)))
       lines.push(paint("dim", `└${border}┘`))
@@ -65,7 +67,14 @@ export function createTextPopup(tui: PopupTui, theme: PanelTheme | undefined, op
       }
       const step = scrollStep(data)
       if (step === 0) return
-      scroll = Math.max(0, scroll + step)
+      this.scrollBy(step)
+    },
+
+    scrollBy(rows: number): void {
+      if (rows === 0) return
+      // The upper bound needs the body length and the row budget, which only the paint knows,
+      // so it is clamped there rather than guessed at here.
+      scroll = Math.max(0, scroll + rows)
       tui.requestRender()
     },
 
