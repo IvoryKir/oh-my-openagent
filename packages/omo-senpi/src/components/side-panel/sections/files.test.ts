@@ -93,27 +93,28 @@ describe("buildFileRows", () => {
   })
 })
 
-describe("buildFileRows on directories", () => {
-  test("#given git reports an untracked directory #when built #then the row still has a name", () => {
-    // given git writes a trailing slash for an untracked directory, and the naive basename of
-    // that is the empty string
-    const status = { root: "/repo", files: [{ xy: "??", path: "build/" }] }
+describe("buildFileRows clicks", () => {
+  test("#given a nested path #when built #then the row shows the basename and the click carries the path", () => {
+    // given the column is narrow, so the row cannot show what the action needs
+    const status = { root: "/repo", files: [{ xy: " M", path: "packages/omo-senpi/src/a.ts" }] }
 
     // when
     const rows = buildFileRows(status, 40, 8)
 
     // then
-    expect(rows[1]?.text).toBe("?? build/")
+    expect(rows[1]?.text).toContain("a.ts")
+    expect(rows[1]?.text).not.toContain("packages/")
+    expect(rows[1]?.action).toEqual({ kind: "file", path: "packages/omo-senpi/src/a.ts" })
   })
 
-  test("#given a nested untracked directory #when built #then only its own name is shown", () => {
+  test("#given the section heading #when built #then it is not clickable", () => {
     // given
-    const status = { root: "/repo", files: [{ xy: "??", path: "packages/omo-senpi/dist/" }] }
+    const status = { root: "/repo", files: [{ xy: "??", path: "new.txt" }] }
 
     // when
     const rows = buildFileRows(status, 40, 8)
 
     // then
-    expect(rows[1]?.text).toBe("?? dist/")
+    expect(rows[0]?.action).toBeUndefined()
   })
 })

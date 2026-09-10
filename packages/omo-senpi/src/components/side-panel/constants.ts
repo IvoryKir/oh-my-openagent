@@ -1,3 +1,12 @@
+/**
+ * Where the host's own URL callback is parked while the panel owns the hook. It is a BOX rather
+ * than the bare function because the renderer reaches an extension through a proxy that wraps
+ * every function it hands out: reading a function back would gain one wrapper per mount cycle,
+ * and the chain would grow with the number of session switches. A plain object is handed back
+ * unwrapped, so the true original survives any number of cycles.
+ */
+export const SIDE_PANEL_PARKED_URL_HOOK = Symbol.for("oh-my-openagent/side-panel/parked-open-url")
+
 /** Registry symbols for pi-tui's layout contract; `Symbol.for` is what makes duplicated copies interoperate. */
 export const PI_TUI_LAYOUT_NODE = Symbol.for("@earendil-works/pi-tui/layout-node")
 export const PI_TUI_VIEWPORT = Symbol.for("@earendil-works/pi-tui/viewport")

@@ -24,7 +24,7 @@ function source(rows: readonly PanelRow[], seen?: number[]) {
 describe("createPanelBody", () => {
   test("#given rows shorter than the column #when rendered #then each line is padded to the full width", () => {
     // given
-    const body = createPanelBody(source([{ text: "a" }, { text: "bb" }]), noTheme)
+    const body = createPanelBody(source([{ text: "a" }, { text: "bb" }]), noTheme, () => false)
 
     // when
     const painted = body.render(5)
@@ -35,7 +35,7 @@ describe("createPanelBody", () => {
 
   test("#given a coloured row and a theme #when rendered #then the theme paints it and padding still fits", () => {
     // given
-    const body = createPanelBody(source([{ text: "USAGE", color: "accent" }]), ansiTheme)
+    const body = createPanelBody(source([{ text: "USAGE", color: "accent" }]), ansiTheme, () => false)
 
     // when
     const painted = body.render(8)
@@ -46,7 +46,7 @@ describe("createPanelBody", () => {
 
   test("#given a row without a colour #when rendered #then no escapes are added", () => {
     // given
-    const body = createPanelBody(source([{ text: "plain" }]), ansiTheme)
+    const body = createPanelBody(source([{ text: "plain" }]), ansiTheme, () => false)
 
     // when
     const painted = body.render(6)
@@ -57,7 +57,7 @@ describe("createPanelBody", () => {
 
   test("#given a host that hands no theme #when rendered #then coloured rows fall back to plain text", () => {
     // given
-    const body = createPanelBody(source([{ text: "USAGE", color: "accent" }]), noTheme)
+    const body = createPanelBody(source([{ text: "USAGE", color: "accent" }]), noTheme, () => false)
 
     // when
     const painted = body.render(5)
@@ -68,7 +68,7 @@ describe("createPanelBody", () => {
 
   test("#given a row wider than the column #when rendered #then it is cut to the column", () => {
     // given
-    const body = createPanelBody(source([{ text: "abcdefghij" }]), noTheme)
+    const body = createPanelBody(source([{ text: "abcdefghij" }]), noTheme, () => false)
 
     // when
     const painted = body.render(5)
@@ -80,7 +80,7 @@ describe("createPanelBody", () => {
   test("#given the layout reports no width #when rendered #then the source is asked for zero", () => {
     // given
     const widths: number[] = []
-    const body = createPanelBody(source([], widths), noTheme)
+    const body = createPanelBody(source([], widths), noTheme, () => false)
 
     // when
     const painted = body.render(-4)
@@ -88,5 +88,40 @@ describe("createPanelBody", () => {
     // then
     expect(painted).toEqual([])
     expect(widths).toEqual([0])
+  })
+
+  test("#given a row with an action #when clicks are on #then the whole line is one hyperlink", () => {
+    // given
+    const rows = [{ text: "M a.ts", action: { kind: "file", path: "src/a.ts" } } as const]
+    const body = createPanelBody(source([...rows]), noTheme, () => true)
+
+    // when
+    const [line] = body.render(10)
+
+    // then
+    expect(line?.startsWith("\u001b]8;;omo-panel:file/src%2Fa.ts\u0007")).toBe(true)
+    expect(line?.endsWith("\u001b]8;;\u0007")).toBe(true)
+    // The link is applied after the width math, so the painted text is still exactly the column.
+    expect(line?.replace(/\u001b\]8;;[^\u0007]*\u0007/g, "")).toBe("M a.ts    ")
+  })
+
+  test("#given clicks are off #when rendered #then the row is painted plain", () => {
+    // given
+    const body = createPanelBody(
+      source([{ text: "M a.ts", action: { kind: "file", path: "src/a.ts" } }]),
+      noTheme,
+      () => false,
+    )
+
+    // when / then
+    expect(body.render(10)[0]).toBe("M a.ts    ")
+  })
+
+  test("#given a row carrying no action #when clicks are on #then it stays plain", () => {
+    // given a heading is not a link
+    const body = createPanelBody(source([{ text: "FILES" }]), noTheme, () => true)
+
+    // when / then
+    expect(body.render(10)[0]).toBe("FILES     ")
   })
 })

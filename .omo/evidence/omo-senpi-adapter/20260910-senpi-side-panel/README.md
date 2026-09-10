@@ -157,7 +157,8 @@ screenshot, and the reflow was verified by measuring transcript line length in t
 - No model traffic: the runs use the repo's offline mock provider and `PI_OFFLINE=1`, so this proves
   startup, layout and teardown - not behaviour during a live turn. The panel renders no
   turn-dependent data yet (M1 ships the location row only).
-- Mouse interaction is not covered because it is not implemented yet (M3, and it depends on a
-  non-public seam).
+- Mouse interaction is not covered because it did not exist at this commit. The claim that it
+  needs a non-public seam turned out to be wrong: it was added later on
+  `feat/senpi-side-panel-usage`, see `.omo/evidence/omo-senpi-adapter/20260910-side-panel-clicks/`.
 - The `write EIO` lines in the sandbox's `senpi-debug.log` are this driver killing the tmux session
   under a running TUI, not a panel fault; their timestamps match the `tmux kill-session` calls.

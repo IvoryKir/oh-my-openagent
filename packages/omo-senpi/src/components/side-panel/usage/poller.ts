@@ -50,8 +50,8 @@ interface ProviderPlan {
   readonly key: PanelUsageProviderKey
   readonly provider: string
   readonly credential: PanelUsageCredential | undefined
-  /** The provider appears in auth.json but offers no usable token. */
-  readonly signedOutRow: boolean
+  /** The provider appears in auth.json at all. One nobody signed into is skipped in silence. */
+  readonly configured: boolean
 }
 
 const PROVIDERS: readonly { readonly key: PanelUsageProviderKey; readonly provider: string }[] = [
@@ -88,7 +88,7 @@ export function createUsagePoller(deps: UsagePollerDeps): UsagePoller {
       key,
       provider,
       credential: resolveUsageCredential(auth, pool, provider, now),
-      signedOutRow: hasProvider(auth, provider),
+      configured: hasProvider(auth, provider),
     }))
   }
 
@@ -123,7 +123,7 @@ export function createUsagePoller(deps: UsagePollerDeps): UsagePoller {
       const cached = readUsageCache(deps.cachePath)
       publish(snapshotOf(cached))
 
-      const planned = plans().filter((plan) => plan.credential !== undefined || plan.signedOutRow)
+      const planned = plans().filter((plan) => plan.credential !== undefined || plan.configured)
       const targets: readonly UsagePollTarget[] = planned.map((plan) => ({
         key: plan.key,
         pollMs: deps.pollMs,

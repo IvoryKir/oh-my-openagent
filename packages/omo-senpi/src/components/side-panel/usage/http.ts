@@ -23,9 +23,13 @@ export type UsageFetch = (url: string, headers: Readonly<Record<string, string>>
  * `redirect: "error"` on purpose: a usage endpoint that starts redirecting is a login wall or a
  * captive portal, and following it would post a bearer token somewhere it was never meant to go.
  */
-export function createUsageFetch(timeoutMs: number = USAGE_TIMEOUT_MS): UsageFetch {
+export function createUsageFetch(): UsageFetch {
   return async (url, headers) => {
-    const response = await fetch(url, { headers: { ...headers }, redirect: "error", signal: AbortSignal.timeout(timeoutMs) })
+    const response = await fetch(url, {
+      headers: { ...headers },
+      redirect: "error",
+      signal: AbortSignal.timeout(USAGE_TIMEOUT_MS),
+    })
     if (!response.ok) {
       const retryAfter = Number(response.headers.get("retry-after"))
       throw new UsageHttpError(`HTTP ${response.status}`, {

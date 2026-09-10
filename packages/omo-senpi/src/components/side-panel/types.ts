@@ -1,3 +1,5 @@
+import type { PanelAction } from "./links"
+
 /**
  * Structural ports for the host surfaces the side panel drives.
  *
@@ -55,14 +57,48 @@ export interface PanelHostTui {
   requestRender(force?: boolean): void
 }
 
+/** The renderer facts a popup needs; everything else about the host is irrelevant there. */
+export interface PopupTui {
+  readonly terminal?: { readonly rows?: number }
+  requestRender(force?: boolean): void
+}
+
+/** Builds the component a host overlay paints, and closes itself through `done`. */
+export type PanelPopupFactory = (
+  tui: PopupTui,
+  theme: PanelTheme | undefined,
+  keybindings: unknown,
+  done: (value?: unknown) => void,
+) => unknown
+
+/**
+ * The overlay-capable slice of senpi's ExtensionUIContext, shared by every panel viewer so a
+ * click and a command open the same thing. senpi carries the identical context on events and
+ * on commands, which is what lets a click reach the overlay at all.
+ */
+export interface PanelOverlayUi {
+  notify(message: string, type?: "info" | "warning" | "error"): void
+  /** Absent on hosts without the overlay seam; the viewers degrade to a notification. */
+  custom?(factory: PanelPopupFactory, options?: Record<string, unknown>): Promise<unknown>
+}
+
 /** The slice of senpi's ExtensionUIContext the panel drives. */
-export interface PanelUi {
+export interface PanelUi extends PanelOverlayUi {
   setWidget(
     key: string,
     content: string[] | ((tui: unknown, theme: unknown) => PanelComponent) | undefined,
     options?: { placement?: "belowEditor" | "aboveEditor" },
   ): void
-  notify(message: string, type?: "info" | "warning" | "error"): void
+}
+
+/**
+ * The renderer's URL activation callback - the host's only click hook. Not readonly: the panel
+ * assigns it to recognise its own rows, and puts the host's back on dispose.
+ */
+export interface PanelUrlHost {
+  openUrl?: (url: string) => void
+  /** Parking spot for the host's own callback, keyed by the symbol in `host-surface.ts`. */
+  [parked: symbol]: unknown
 }
 
 /** The context facts captured on entry; senpi carries `ui` on event contexts, not on ExtensionAPI. */
@@ -88,6 +124,8 @@ export type PanelColor = "text" | "muted" | "dim" | "accent" | "warning" | "erro
 export interface PanelRow {
   readonly text: string
   readonly color?: PanelColor
+  /** What a click on this row opens. A row without one is painted as plain text. */
+  readonly action?: PanelAction
 }
 
 /** The slice of pi-tui's theme the panel needs; absent on hosts that hand no theme to a widget. */
@@ -108,6 +146,10 @@ export interface PanelHostSurfaceDeps {
   /** Terminals narrower than this keep the classic single-column layout. */
   readonly minColumns: number
   readonly logger: PanelSurfaceLogger
+  /** Paint rows as links and claim the host's URL hook. Off means the column is inert. */
+  readonly clickable: boolean
+  /** Where an activated row goes. Without it nothing is painted as a link. */
+  readonly onAction?: (action: PanelAction) => void
   /** Injected so tests can drive the deferred attach synchronously. */
   readonly defer?: (callback: () => void) => void
 }

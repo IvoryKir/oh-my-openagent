@@ -41,6 +41,8 @@ const OmoSidePanelSettingsShape = {
   width: OmoSidePanelWidthSchema,
   /** Terminals narrower than this keep the classic single-column layout (default: 120). */
   min_columns: z.number().int().min(60).max(400),
+  /** Paint file and subagent rows as clickable links (default: true). */
+  clickable: z.boolean(),
   /** Subscription usage refresh interval in seconds; the cache is shared across sessions (default: 150). */
   usage_poll_seconds: z.number().int().min(60).max(3600),
   /** Per-section switches. Every section is on while the panel is on. */
@@ -53,6 +55,7 @@ export const OmoSidePanelSettingsSchema = OmoSidePanelSettingsLayerSchema.extend
   enabled: z.boolean().default(false),
   width: OmoSidePanelWidthSchema.default("26%"),
   min_columns: z.number().int().min(60).max(400).default(120),
+  clickable: z.boolean().default(true),
   usage_poll_seconds: z.number().int().min(60).max(3600).default(150),
   sections: OmoSidePanelSectionsSchema.default({
     session: true,
@@ -78,6 +81,7 @@ type SidePanelSettingPath = `side_panel.${SidePanelSettingKey}`
 
 export const SIDE_PANEL_HARNESS_SUPPORT: Record<SidePanelSettingPath, readonly OmoHarnessId[]> = {
   "side_panel.enabled": ["senpi"],
+  "side_panel.clickable": ["senpi"],
   "side_panel.width": ["senpi"],
   "side_panel.min_columns": ["senpi"],
   "side_panel.usage_poll_seconds": ["senpi"],

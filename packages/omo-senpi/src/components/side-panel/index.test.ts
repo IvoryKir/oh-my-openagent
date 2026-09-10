@@ -49,7 +49,9 @@ function settings(overrides: Partial<OmoSidePanelSettings> = {}): OmoSidePanelSe
   const parsed = OmoSidePanelSettingsSchema.parse({})
   // The usage section is the only one that reads credentials and reaches the network, so it is
   // off unless a test asks for it and hands over its own ports.
-  return { ...parsed, sections: { ...parsed.sections, usage: false }, ...overrides }
+  // Clicks paint OSC 8 links over the rows and claim the host url hook, so they are off
+  // unless a test asks for them: the row assertions here read plain text.
+  return { ...parsed, clickable: false, sections: { ...parsed.sections, usage: false }, ...overrides }
 }
 
 describe("side panel component", () => {

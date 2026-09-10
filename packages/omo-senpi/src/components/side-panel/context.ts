@@ -13,6 +13,7 @@ export function panelContextFrom(value: unknown): PanelHostContext | undefined {
   const setWidget = ui["setWidget"]
   if (typeof setWidget !== "function") return undefined
   const notify = ui["notify"]
+  const custom = ui["custom"]
   const port: PanelUi = {
     setWidget(key, content, options) {
       Reflect.apply(setWidget, ui, [key, content, options])
@@ -21,6 +22,15 @@ export function panelContextFrom(value: unknown): PanelHostContext | undefined {
       if (typeof notify !== "function") return
       Reflect.apply(notify, ui, [message, type])
     },
+    // The overlay seam is what a clicked row needs; a host without it degrades to `notify`.
+    ...(typeof custom === "function"
+      ? {
+          custom(factory, options) {
+            const opened: unknown = Reflect.apply(custom, ui, [factory, options])
+            return opened instanceof Promise ? opened : Promise.resolve(opened)
+          },
+        }
+      : {}),
   }
   return {
     ui: port,

@@ -40,6 +40,8 @@ export function providersDue(
     const entry = cache[target.key]
     const sameAccount = entry?.account === target.account
     if (sameAccount && typeof entry?.retryAt === "number" && entry.retryAt > now) continue
+    // The configured interval is a floor, not a way to ask faster than the provider's own
+    // freshness window allows: whichever of the two is longer wins.
     const ttl = Math.max(USAGE_TTL_MS[target.key], target.pollMs)
     if (sameAccount && typeof entry?.updatedAt === "number" && now - entry.updatedAt < ttl) continue
     const claimedAt = cache.fetching?.[target.key]

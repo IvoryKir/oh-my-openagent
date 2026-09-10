@@ -2,16 +2,17 @@ import type { SenpiExtensionAPI } from "../../extension/types"
 import { readGitDiff } from "./git/diff"
 import type { PanelGitEntry } from "./git/parse"
 import type { PanelExec } from "./git/read"
-import { createTextPopup, type PopupTui } from "./popups/text-popup"
+import { openPanelViewer } from "./popups/open"
 import type { PanelGitStatus } from "./sections/files"
-import type { PanelRow, PanelTheme } from "./types"
+import type { PanelOverlayUi } from "./types"
 
 /**
- * The keyboard route to the panel's viewers.
+ * The named route to the panel's viewers.
  *
- * Clicking a row would need the host's private mouse path, so every viewer is reachable by
- * command instead. No default chord is registered: picking a global key in someone else's
- * editor invites a collision with the user's own bindings.
+ * Rows are clickable in their own right (`links.ts`), and this is the same destination reached
+ * by name - for keyboards, and for a host that hands out no URL hook. No default chord is
+ * registered: picking a global key in someone else's editor invites a collision with the
+ * user's own bindings.
  */
 
 /** Structural slice of senpi's ExtensionCommandContext these commands read. */
@@ -20,13 +21,8 @@ interface PanelCommandContext {
   readonly ui?: PanelCommandUi
 }
 
-interface PanelCommandUi {
-  notify(message: string, type?: "info" | "warning" | "error"): void
+interface PanelCommandUi extends PanelOverlayUi {
   select(title: string, options: string[]): Promise<string | undefined>
-  custom?<T>(
-    factory: (tui: PopupTui, theme: PanelTheme | undefined, keybindings: unknown, done: (value?: T) => void) => unknown,
-    options?: Record<string, unknown>,
-  ): Promise<T | undefined>
 }
 
 export interface PanelCommandDeps {
@@ -65,30 +61,16 @@ async function runDiffCommand(deps: PanelCommandDeps, ctx: PanelCommandContext):
   if (choice === undefined) return
   const file = status.files[options.indexOf(choice)]
   if (file === undefined) return
-  const rows = await readGitDiff(deps.exec, status.root, file)
-  if (ui.custom === undefined) {
-    // A host without the overlay seam still gets the answer, just not a scrollable one.
-    ui.notify(rows.map((row) => row.text).join("\n"), "info")
-    return
-  }
-  await openDiffPopup(ui, file.path, rows)
+  await openFileDiff(ui, deps.exec, status, file)
 }
 
-function openDiffPopup(ui: PanelCommandUi, title: string, rows: readonly PanelRow[]): Promise<unknown> {
-  return (
-    ui.custom?.(
-      (tui, theme, _keybindings, done) =>
-        createTextPopup(tui, theme, {
-          title: `${title}  (diff, read-only)`,
-          rows: () => rows,
-          close: () => done(undefined),
-        }),
-      {
-        overlay: true,
-        // The popup owns its own height; a percentage cap here would fight it and the loser
-        // is the closing border.
-        overlayOptions: { width: "70%", minWidth: 52, maxHeight: "100%", anchor: "center" },
-      },
-    ) ?? Promise.resolve(undefined)
-  )
+/** One file's diff in the shared viewer. Both the command and a clicked row land here. */
+export async function openFileDiff(
+  ui: PanelOverlayUi,
+  exec: PanelExec,
+  status: PanelGitStatus,
+  file: PanelGitEntry,
+): Promise<void> {
+  const rows = await readGitDiff(exec, status.root, file)
+  await openPanelViewer(ui, `${file.path}  (diff, read-only)`, rows)
 }

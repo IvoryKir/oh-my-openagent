@@ -23,7 +23,12 @@ export function buildFileRows(status: PanelGitStatus | undefined, width: number,
       ? ""
       : `  +${file.added ?? 0}/-${file.removed ?? 0}`
     const text = `${file.xy} ${basename(file.path)}${delta}`
-    rows.push({ text: truncateVisible(text, width), color: colorFor(file.xy) })
+    // The row shows the basename because the column is narrow; the click carries the real path.
+    rows.push({
+      text: truncateVisible(text, width),
+      color: colorFor(file.xy),
+      action: { kind: "file", path: file.path },
+    })
   }
   return rows
 }

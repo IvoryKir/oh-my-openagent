@@ -5,17 +5,20 @@ import { resolveOmoSidePanelSettings, type OmoSidePanelSettings } from "@oh-my-o
 import type { ComponentContext, OmoSenpiComponent, SenpiExtensionAPI } from "../../extension/types"
 import { loadSenpiOmoConfig } from "../config-resolution"
 import { FILE_VISIBLE_ROWS, GIT_REFRESH_FLOOR_MS, LIVE_REFRESH_MS, SIDE_PANEL_FLAG, TOOL_VISIBLE_ROWS } from "./constants"
-import { registerPanelCommands } from "./commands"
+import { openFileDiff, registerPanelCommands } from "./commands"
 import { panelContextFrom } from "./context"
 import { panelFactsFrom, type PanelHostFacts } from "./data/facts"
 import { panelChildrenFromRecords, type PanelTaskRecord } from "./data/task-records"
 import { readGitStatus, type PanelExec } from "./git/read"
 import { findGitRoot, readGitBranch } from "./git/repo"
 import { createPanelHostSurface } from "./host-surface"
+import type { PanelAction } from "./links"
+import { openPanelViewer } from "./popups/open"
+import { buildAgentCardRows } from "./sections/agents"
 import type { PanelGitStatus } from "./sections/files"
 import { buildPanelRows } from "./rows"
 import { createPanelStore } from "./store"
-import type { PanelHostSurface, PanelTimerHandle, PanelTimers } from "./types"
+import type { PanelHostSurface, PanelTimerHandle, PanelTimers, PanelUi } from "./types"
 import { createCredentialReader } from "./usage/credentials"
 import { createUsageFetch, type UsageFetch } from "./usage/http"
 import { createUsagePoller, type UsageCredentialSource, type UsagePoller } from "./usage/poller"
@@ -95,6 +98,7 @@ export function createSidePanelComponent(options: SidePanelComponentOptions = {}
       registerPanelCommands(pi, { status: () => git, exec })
       let surface: PanelHostSurface | undefined
       let usage: UsagePoller | undefined
+      let hostUi: PanelUi | undefined
       let facts: PanelHostFacts = {}
       let startedAt: number | undefined
       let liveTimer: PanelTimerHandle | undefined
@@ -157,6 +161,30 @@ export function createSidePanelComponent(options: SidePanelComponentOptions = {}
         }
       }
 
+      /**
+       * What an activated row opens. A clicked row and `/side-panel-diff` land in the same
+       * viewer, so there is exactly one place that knows what a row means.
+       */
+      const openAction = async (action: PanelAction): Promise<void> => {
+        const ui = hostUi
+        if (ui === undefined) return
+        if (action.kind === "file") {
+          const status = git
+          if (status === undefined || exec === undefined) return
+          const file = status.files.find((entry) => entry.path === action.path)
+          if (file === undefined) {
+            // The column can be a moment behind the tree: a file may have been committed since.
+            ui.notify(`${action.path} is no longer listed as changed.`, "info")
+            return
+          }
+          await openFileDiff(ui, exec, status, file)
+          return
+        }
+        const child = store.state().children.find((entry) => entry.id === action.id)
+        if (child === undefined) return
+        await openPanelViewer(ui, `${child.name}  (agent)`, buildAgentCardRows(child, now()))
+      }
+
       const refresh = async (eventCtx: unknown): Promise<undefined> => {
         if (surface === undefined) return undefined
         facts = { ...facts, ...panelFactsFrom(eventCtx) }
@@ -172,6 +200,7 @@ export function createSidePanelComponent(options: SidePanelComponentOptions = {}
         usage = undefined
         surface?.dispose()
         surface = undefined
+        hostUi = undefined
         return undefined
       }
 
@@ -186,6 +215,7 @@ export function createSidePanelComponent(options: SidePanelComponentOptions = {}
         }
         facts = panelFactsFrom(eventCtx)
         startedAt = now()
+        hostUi = context.ui
         surface = createPanelHostSurface({
           context,
           source: {
@@ -210,6 +240,12 @@ export function createSidePanelComponent(options: SidePanelComponentOptions = {}
           width: (terminalWidth) => resolvePanelWidth(settings.width, terminalWidth),
           minColumns: settings.min_columns,
           logger: ctx.logger,
+          clickable: settings.clickable,
+          onAction: (action) => {
+            void openAction(action).catch((error: unknown) => {
+              ctx.logger.debug?.("omo-senpi side panel: row action failed", { error: String(error) })
+            })
+          },
           ...(options.defer === undefined ? {} : { defer: options.defer }),
         })
         gitRoot = locateGit(cwd)

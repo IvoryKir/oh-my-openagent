@@ -8,6 +8,7 @@ import {
   SIDE_PANEL_WIDGET_KEY,
 } from "./constants"
 import { createPanelHostSurface } from "./host-surface"
+import type { PanelAction } from "./links"
 import type { PanelComponent, PanelHostContext, PanelStackNode, PanelUi } from "./types"
 
 interface WidgetCall {
@@ -51,10 +52,18 @@ interface FakeTui {
   renders: number
   setLayoutRoot(component: unknown): void
   requestRender(force?: boolean): void
+  openUrl?: (url: string) => void
   readonly [PI_TUI_VIEWPORT]?: true
 }
 
-function fakeTui(options: { viewport?: boolean; root?: PanelComponent | undefined; columns?: number } = {}): FakeTui {
+function fakeTui(
+  options: {
+    viewport?: boolean
+    root?: PanelComponent | undefined
+    columns?: number
+    onUrl?: (url: string) => void
+  } = {},
+): FakeTui {
   const tui: FakeTui = {
     layoutRoot: options.root,
     terminal: { columns: options.columns ?? 200 },
@@ -65,6 +74,7 @@ function fakeTui(options: { viewport?: boolean; root?: PanelComponent | undefine
     requestRender() {
       tui.renders += 1
     },
+    ...(options.onUrl === undefined ? {} : { openUrl: options.onUrl }),
     ...(options.viewport === false ? {} : { [PI_TUI_VIEWPORT]: true as const }),
   }
   return tui
@@ -85,6 +95,7 @@ function surfaceFor(ui: FakeUi, ctx: PanelHostContext, width = 40) {
     source: { rows: () => [{ text: "row" }] },
     width: () => width,
     minColumns: 120,
+    clickable: false,
     logger: { warn: (message) => warnings.push(message), debug: () => {} },
     defer: (callback) => callback(),
   })
@@ -267,6 +278,7 @@ describe("side panel host surface", () => {
         return Math.floor(terminalWidth / 4)
       },
       minColumns: 120,
+      clickable: false,
       logger: { warn: () => {}, debug: () => {} },
       defer: (callback) => callback(),
     })
@@ -282,5 +294,124 @@ describe("side panel host surface", () => {
     expect(before).toBe(50)
     expect(after).toBe(40)
     expect(seen).toEqual([50 * 4, 160])
+  })
+})
+
+describe("side panel url hook", () => {
+  interface Harness {
+    readonly tui: FakeTui
+    readonly hostUrls: string[]
+    readonly actions: PanelAction[]
+    readonly surface: ReturnType<typeof createPanelHostSurface>
+  }
+
+  function mounted(clickable: boolean): Harness {
+    const ui = fakeUi()
+    const hostUrls: string[] = []
+    const actions: PanelAction[] = []
+    const tui = fakeTui({ root: transcriptRoot(), onUrl: (url) => hostUrls.push(url) })
+    const surface = createPanelHostSurface({
+      context: context(ui),
+      source: { rows: () => [{ text: "M a.ts", action: { kind: "file", path: "src/a.ts" } }] },
+      width: () => 30,
+      minColumns: 80,
+      clickable,
+      onAction: (action) => actions.push(action),
+      logger: { warn: () => {}, debug: () => {} },
+      defer: (callback) => callback(),
+    })
+    surface.mount()
+    ui.factoryFor(SIDE_PANEL_ANCHOR_WIDGET_KEY)?.(tui, undefined)
+    return { tui, hostUrls, actions, surface }
+  }
+
+  test("#given one of the panel's own urls #when the host activates it #then the action is dispatched", () => {
+    // given
+    const harness = mounted(true)
+
+    // when
+    harness.tui.openUrl?.("omo-panel:file/src%2Fa.ts")
+
+    // then
+    expect(harness.actions).toEqual([{ kind: "file", path: "src/a.ts" }])
+    expect(harness.hostUrls).toEqual([])
+  })
+
+  test("#given a url the host owns #when activated #then it is handed straight back", () => {
+    // given
+    const harness = mounted(true)
+
+    // when
+    harness.tui.openUrl?.("https://example.com/docs")
+
+    // then
+    expect(harness.hostUrls).toEqual(["https://example.com/docs"])
+    expect(harness.actions).toEqual([])
+  })
+
+  test("#given the panel is disposed #when a panel url arrives #then the host callback is back in place", () => {
+    // given
+    const harness = mounted(true)
+
+    // when
+    harness.surface.dispose()
+    harness.tui.openUrl?.("omo-panel:file/src%2Fa.ts")
+
+    // then the panel no longer answers for its own scheme
+    expect(harness.actions).toEqual([])
+    expect(harness.hostUrls).toEqual(["omo-panel:file/src%2Fa.ts"])
+  })
+
+  test("#given clicks are switched off #when the panel attaches #then the hook is never claimed", () => {
+    // given
+    const harness = mounted(false)
+
+    // when
+    harness.tui.openUrl?.("omo-panel:file/src%2Fa.ts")
+
+    // then
+    expect(harness.actions).toEqual([])
+    expect(harness.hostUrls).toEqual(["omo-panel:file/src%2Fa.ts"])
+  })
+})
+
+describe("side panel url hook across remounts", () => {
+  test("#given a host that re-wraps every function it hands out #when remounted #then the callback does not nest", () => {
+    // given the real renderer reaches an extension through a proxy that wraps function reads,
+    // so a naive save-and-restore gains one wrapper per mount cycle
+    const inner = fakeTui({ root: transcriptRoot(), onUrl: () => {} })
+    const wrapping = new Proxy(inner, {
+      get: (target, property) => {
+        const value = Reflect.get(target, property, target)
+        if (typeof value !== "function") return value
+        return (...args: unknown[]) => Reflect.apply(value, target, args)
+      },
+      set: (target, property, value) => Reflect.set(target, property, value, target),
+    })
+
+    const mountOnce = (): void => {
+      const ui = fakeUi()
+      const surface = createPanelHostSurface({
+        context: context(ui),
+        source: { rows: () => [{ text: "M a.ts", action: { kind: "file", path: "src/a.ts" } }] },
+        width: () => 30,
+        minColumns: 80,
+        clickable: true,
+        onAction: () => {},
+        logger: { warn: () => {}, debug: () => {} },
+        defer: (callback) => callback(),
+      })
+      surface.mount()
+      ui.factoryFor(SIDE_PANEL_ANCHOR_WIDGET_KEY)?.(wrapping, undefined)
+      surface.dispose()
+    }
+
+    // when
+    mountOnce()
+    const afterFirst = inner.openUrl
+    mountOnce()
+
+    // then the restored callback is the same object, not a wrapper around the last one
+    expect(inner.openUrl).toBe(afterFirst)
   })
 })

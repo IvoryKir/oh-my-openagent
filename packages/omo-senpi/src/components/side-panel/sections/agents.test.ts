@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import type { PanelChild } from "../store"
-import { buildAgentRows } from "./agents"
+import { buildAgentCardRows, buildAgentRows } from "./agents"
 
 const child = (overrides: Partial<PanelChild> = {}): PanelChild => ({
   id: "c1",
@@ -96,5 +96,48 @@ describe("buildAgentRows", () => {
 
     // then
     expect(rows[1]?.text.length).toBeLessThanOrEqual(20)
+  })
+})
+
+describe("agent clicks and card", () => {
+  const child = {
+    id: "st_1",
+    name: "explore",
+    status: "running" as const,
+    startedAt: 0,
+    category: "deep",
+    activity: "read a.ts",
+    turns: 3,
+    tokens: 1_200,
+    cost: 0.42,
+  }
+
+  test("#given a child row #when built #then the click carries its id", () => {
+    // when
+    const rows = buildAgentRows([child], 60_000, 40)
+
+    // then
+    expect(rows[1]?.action).toEqual({ kind: "agent", id: "st_1" })
+    expect(rows[0]?.action).toBeUndefined()
+  })
+
+  test("#given a child #when the card is built #then it carries what the narrow row could not", () => {
+    // when
+    const texts = buildAgentCardRows(child, 60_000).map((row) => row.text)
+
+    // then
+    expect(texts.some((text) => text.startsWith("status"))).toBe(true)
+    expect(texts.some((text) => text.startsWith("category"))).toBe(true)
+    expect(texts.some((text) => text.startsWith("cost"))).toBe(true)
+    expect(texts.some((text) => text.includes("st_1"))).toBe(true)
+  })
+
+  test("#given a child that knows little #when the card is built #then absent fields are omitted", () => {
+    // when
+    const texts = buildAgentCardRows({ id: "st_2", name: "x", status: "queued", startedAt: 0 }, 1_000).map((r) => r.text)
+
+    // then
+    expect(texts.some((text) => text.startsWith("cost"))).toBe(false)
+    expect(texts.some((text) => text.startsWith("turns"))).toBe(false)
   })
 })

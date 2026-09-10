@@ -1,12 +1,6 @@
 import { padVisible, truncateVisible } from "../format/truncate"
-import type { PanelRow, PanelTheme } from "../types"
+import type { PanelRow, PanelTheme, PopupTui } from "../types"
 import { clampScroll, popupBudget, POPUP_CHROME_ROWS } from "./viewport"
-
-/** The renderer facts the popup needs; everything else about the host is irrelevant here. */
-export interface PopupTui {
-  readonly terminal?: { readonly rows?: number }
-  requestRender(force?: boolean): void
-}
 
 export interface PopupComponent {
   render(width: number): string[]
@@ -45,16 +39,16 @@ export function createTextPopup(tui: PopupTui, theme: PanelTheme | undefined, op
       scroll = clampScroll(scroll, body.length, budget.body)
       const border = "─".repeat(Math.max(0, width - 2))
       const lines: string[] = [paint("dim", `┌${border}┐`)]
-      lines.push(frame(paint, padVisible(paint("accent", truncateVisible(options.title, inner)), inner), inner))
+      lines.push(frame(paint, padVisible(paint("accent", truncateVisible(options.title, inner)), inner)))
       for (const row of body.slice(scroll, scroll + budget.body)) {
         const text = truncateVisible(row.text, inner)
-        lines.push(frame(paint, padVisible(paint(row.color, text), inner), inner))
+        lines.push(frame(paint, padVisible(paint(row.color, text), inner)))
       }
       const hint =
         body.length > budget.body
           ? `${scroll + 1}-${Math.min(body.length, scroll + budget.body)}/${body.length}  ↑↓ scroll  esc close`
           : "esc close"
-      lines.push(frame(paint, padVisible(paint("dim", hint.padStart(inner).slice(0, inner)), inner), inner))
+      lines.push(frame(paint, padVisible(paint("dim", hint.padStart(inner).slice(0, inner)), inner)))
       lines.push(paint("dim", `└${border}┘`))
       // Exactly the budget: one row more and the host would slice the closing border off.
       return lines.slice(0, budget.total)
@@ -81,7 +75,7 @@ export function createTextPopup(tui: PopupTui, theme: PanelTheme | undefined, op
   }
 }
 
-function frame(paint: (color: PanelRow["color"], text: string) => string, content: string, _inner: number): string {
+function frame(paint: (color: PanelRow["color"], text: string) => string, content: string): string {
   return `${paint("dim", "│")} ${content} ${paint("dim", "│")}`
 }
 

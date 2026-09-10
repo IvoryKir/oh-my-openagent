@@ -175,8 +175,16 @@ default** because it rearranges the whole screen.
 | `enabled` | boolean | `false` | Render the panel. |
 | `width` | number \| string | `"26%"` | Column count, or a percentage of the terminal width between `10%` and `50%`. Clamped to 32-80 columns, and further reduced so the transcript keeps at least 60 columns. |
 | `min_columns` | integer | `120` | Terminals narrower than this keep the classic single-column layout; the panel hides itself rather than squeezing the transcript. |
-| `usage_poll_seconds` | integer | `150` | Subscription usage refresh interval. The cache is shared across sessions on one machine, so this is per machine, not per session. Minimum `60`. |
+| `clickable` | boolean | `true` | Paint file and subagent rows as OSC 8 links, so a mouse click opens the same viewer a command would. Set it to `false` on a terminal that mangles hyperlinks. |
+| `usage_poll_seconds` | integer | `150` | Subscription usage refresh interval, and a floor rather than a ceiling: each provider keeps its own freshness window (five minutes for Anthropic, two and a half for Codex), so a smaller value does not poll faster than that. The cache is shared across sessions on one machine, so this is per machine, not per session. Minimum `60`. |
 | `sections` | object | all `true` | Per-section switches: `session`, `context`, `usage`, `agents`, `tools`, `files`, `memory`. |
+
+Rows are clickable because the fullscreen renderer already captures the mouse and activates OSC 8
+hyperlinks; the panel paints its rows as links to a private scheme and claims the renderer's URL
+callback while it is mounted, handing every other URL straight back. Clicking a file opens its diff
+and clicking a subagent opens its card - the same viewers `/side-panel-diff` reaches by name. Text
+selection is untouched: the renderer only activates a link on a press and release inside one cell
+with no drag, so dragging still selects and double or triple clicks still take a word or a line.
 
 The `usage` section is the only part of omo that reaches the network on its own: it reads the
 subscription windows your plan publishes (`api.anthropic.com/api/oauth/usage` for a Claude
@@ -206,9 +214,9 @@ any host that does not expose the layout seam - the same rows render as a block 
 instead, and a headless run renders nothing.
 
 The `files` section lists the working copy as `git status` sees it, both status columns included.
-`/side-panel-diff` opens the diff of any file it lists in a scrollable read-only viewer; clicking a
-row is deliberately not the only route, because mouse routing is not part of the host's public
-surface. No keyboard chord is registered by default.
+Clicking a row opens that file's diff in a scrollable read-only viewer, and `/side-panel-diff`
+reaches the same viewer by name - for keyboards, and for a host that hands out no URL hook. No
+keyboard chord is registered by default.
 
 The block may live at the shared top level, in `[senpi]`, or in profile layers, and follows the
 normal resolution order.

@@ -11,7 +11,6 @@ const WINDOW_ROWS = 4
 const PERCENT_WIDTH = 4
 
 const PROVIDER_ORDER: readonly PanelUsageProviderKey[] = ["claude", "codex"]
-const PROVIDER_LABEL: Readonly<Record<PanelUsageProviderKey, string>> = { claude: "claude", codex: "codex" }
 
 /**
  * Subscription usage: how much of each rolling window the serving account has spent.
@@ -39,7 +38,7 @@ export function buildUsageRows(usage: PanelUsageSnapshot, now: number, width: nu
   for (const key of present) {
     const entry = usage[key]
     if (entry === undefined) continue
-    const rows = providerRows(entry, now, { width, tail, resetWidth }, present.length > 1 ? PROVIDER_LABEL[key] : undefined)
+    const rows = providerRows(entry, now, { width, tail, resetWidth }, present.length > 1 ? key : undefined)
     if (rows.length === 0) continue
     body.push(...rows)
     if (entry.updatedAt !== undefined && (freshest === undefined || entry.updatedAt > freshest)) {

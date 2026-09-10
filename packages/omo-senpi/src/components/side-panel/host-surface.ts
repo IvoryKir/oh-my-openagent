@@ -1,6 +1,8 @@
 import { createPanelBody } from "./body"
+import { parsePanelActionUrl } from "./links"
 import {
   MIN_TRANSCRIPT_COLUMNS,
+  SIDE_PANEL_PARKED_URL_HOOK,
   PI_TUI_LAYOUT_NODE,
   PI_TUI_VIEWPORT,
   SIDE_PANEL_ANCHOR_WIDGET_KEY,
@@ -15,6 +17,7 @@ import type {
   PanelStackEntry,
   PanelSurfaceKind,
   PanelTheme,
+  PanelUrlHost,
 } from "./types"
 
 /**
@@ -28,7 +31,8 @@ import type {
  */
 export function createPanelHostSurface(deps: PanelHostSurfaceDeps): PanelHostSurface {
   let theme: PanelTheme | undefined
-  const body = createPanelBody(deps.source, () => theme)
+  const clickable = (): boolean => deps.clickable && deps.onAction !== undefined
+  const body = createPanelBody(deps.source, () => theme, clickable)
   const defer = deps.defer ?? queueMicrotask
   let kind: PanelSurfaceKind = "dark"
   let installed: InstalledColumn | undefined
@@ -41,6 +45,41 @@ export function createPanelHostSurface(deps: PanelHostSurfaceDeps): PanelHostSur
     readonly root: PanelComponent
   }
 
+  interface InstalledUrlHook {
+    readonly host: PanelUrlHost
+    readonly previous: (url: string) => void
+  }
+
+  let urlHook: InstalledUrlHook | undefined
+
+  /**
+   * Claim the host's URL activation callback, which is the only path a mouse click has into an
+   * extension: the renderer resolves an OSC 8 link from its own screen buffer and calls this.
+   * Anything that is not one of the panel's own URLs is handed straight back to the host.
+   */
+  const installUrlHook = (candidate: unknown): void => {
+    const onAction = deps.onAction
+    if (!clickable() || onAction === undefined || urlHook !== undefined) return
+    if (!isUrlHost(candidate)) {
+      deps.logger.debug?.("side-panel: renderer exposes no url hook, rows stay unclickable")
+      return
+    }
+    // The host's callback is parked on the renderer itself, once, and stays there: re-reading
+    // it through the proxy would wrap it again on every mount.
+    const parked = candidate[SIDE_PANEL_PARKED_URL_HOOK]
+    const previous = isParkedHook(parked) ? parked.hook : candidate.openUrl
+    if (!isParkedHook(parked)) candidate[SIDE_PANEL_PARKED_URL_HOOK] = { hook: previous }
+    urlHook = { host: candidate, previous }
+    candidate.openUrl = (url: string): void => {
+      const action = parsePanelActionUrl(url)
+      if (action === undefined) {
+        previous(url)
+        return
+      }
+      onAction(action)
+    }
+  }
+
   const mountWidget = (): PanelSurfaceKind => {
     deps.context.ui.setWidget(SIDE_PANEL_WIDGET_KEY, () => body, { placement: "aboveEditor" })
     widgetMounted = true
@@ -50,6 +89,9 @@ export function createPanelHostSurface(deps: PanelHostSurfaceDeps): PanelHostSur
 
   const attach = (candidate: unknown): void => {
     if (installed !== undefined) return
+    // Clicks are wired before the layout is, because the widget fallback paints the same rows
+    // and the host resolves a click from the rendered frame either way.
+    installUrlHook(candidate)
     if (!isHostTui(candidate)) {
       deps.logger.debug?.("side-panel: renderer does not expose the layout seam, using a widget block")
       mountWidget()
@@ -95,6 +137,15 @@ export function createPanelHostSurface(deps: PanelHostSurfaceDeps): PanelHostSur
       renderer?.requestRender(false)
     },
     dispose(): void {
+      if (urlHook !== undefined) {
+        const { host, previous } = urlHook
+        urlHook = undefined
+        // Ownership cannot be checked the way the layout root's is: the renderer reaches an
+        // extension through a proxy that returns a fresh wrapper for every function read, so
+        // `host.openUrl === ours` is never true. The host assigns this callback once, at
+        // construction, so putting the parked original back is the safe move.
+        host.openUrl = previous
+      }
       if (installed !== undefined) {
         const { tui, originalRoot, root } = installed
         installed = undefined
@@ -181,6 +232,15 @@ function isHostTui(value: unknown): value is PanelHostTui {
   if (!isRecord(value)) return false
   if (value[PI_TUI_VIEWPORT] !== true) return false
   return typeof value["setLayoutRoot"] === "function" && typeof value["requestRender"] === "function"
+}
+
+function isParkedHook(value: unknown): value is { readonly hook: (url: string) => void } {
+  return isRecord(value) && typeof value["hook"] === "function"
+}
+
+/** A renderer that activates URLs. Absent on hosts that never wired one. */
+function isUrlHost(value: unknown): value is PanelUrlHost & { openUrl: (url: string) => void } {
+  return isRecord(value) && typeof value["openUrl"] === "function"
 }
 
 function isPanelComponent(value: unknown): value is PanelComponent {

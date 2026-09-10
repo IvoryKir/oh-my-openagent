@@ -1,4 +1,5 @@
 import { padVisible, truncateVisible } from "./format/truncate"
+import { withActionLink } from "./links"
 import type { PanelComponent, PanelRowSource, PanelTheme } from "./types"
 
 /**
@@ -7,15 +8,22 @@ import type { PanelComponent, PanelRowSource, PanelTheme } from "./types"
  * the column reads as one block instead of ragged text over the transcript. The theme
  * arrives with the host renderer, so it is read through a getter rather than captured.
  */
-export function createPanelBody(source: PanelRowSource, theme: () => PanelTheme | undefined): PanelComponent {
+export function createPanelBody(
+  source: PanelRowSource,
+  theme: () => PanelTheme | undefined,
+  clickable: () => boolean,
+): PanelComponent {
   return {
     render(width: number): string[] {
       const inner = Math.max(0, width)
       const paint = theme()
+      const links = clickable()
       return source.rows(inner).map((row) => {
         const text = truncateVisible(row.text, inner)
         const styled = paint !== undefined && row.color !== undefined ? paint.fg(row.color, text) : text
-        return padVisible(styled, inner)
+        const padded = padVisible(styled, inner)
+        // The link goes on last, over the padding too, so a click anywhere on the row counts.
+        return links && row.action !== undefined ? withActionLink(padded, row.action) : padded
       })
     },
     invalidate(): void {

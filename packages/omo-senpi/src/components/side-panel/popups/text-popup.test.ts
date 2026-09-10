@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test"
 
 import type { PanelRow } from "../types"
-import { createTextPopup, type PopupTui } from "./text-popup"
+import type { PopupTui } from "../types"
+import { createTextPopup } from "./text-popup"
 import { popupBudget } from "./viewport"
 
 function tui(rows: number): PopupTui & { renders: number } {

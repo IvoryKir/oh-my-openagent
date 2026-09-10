@@ -2158,6 +2158,10 @@
           "minimum": 60,
           "maximum": 400
         },
+        "clickable": {
+          "default": true,
+          "type": "boolean"
+        },
         "usage_poll_seconds": {
           "default": 150,
           "type": "integer",
@@ -2221,6 +2225,7 @@
         "enabled",
         "width",
         "min_columns",
+        "clickable",
         "usage_poll_seconds",
         "sections"
       ],
@@ -14008,6 +14013,9 @@
               "minimum": 60,
               "maximum": 400
             },
+            "clickable": {
+              "type": "boolean"
+            },
             "usage_poll_seconds": {
               "type": "integer",
               "minimum": 60,
@@ -15918,6 +15926,9 @@
               "type": "integer",
               "minimum": 60,
               "maximum": 400
+            },
+            "clickable": {
+              "type": "boolean"
             },
             "usage_poll_seconds": {
               "type": "integer",
@@ -17835,6 +17846,9 @@
                 "type": "integer",
                 "minimum": 60,
                 "maximum": 400
+              },
+              "clickable": {
+                "type": "boolean"
               },
               "usage_poll_seconds": {
                 "type": "integer",
@@ -29653,6 +29667,9 @@
                     "minimum": 60,
                     "maximum": 400
                   },
+                  "clickable": {
+                    "type": "boolean"
+                  },
                   "usage_poll_seconds": {
                     "type": "integer",
                     "minimum": 60,
@@ -31563,6 +31580,9 @@
                     "type": "integer",
                     "minimum": 60,
                     "maximum": 400
+                  },
+                  "clickable": {
+                    "type": "boolean"
                   },
                   "usage_poll_seconds": {
                     "type": "integer",
