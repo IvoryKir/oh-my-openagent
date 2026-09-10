@@ -20,7 +20,7 @@ The payloads carry only booleans, buckets, counters, and allowlisted enum values
 | `session_started` | `arch` | `string` | - |
 | `session_started` | `cpu_count` | `number` | - |
 | `session_started` | `default_model` | `string` | `qwen3.6-flash`, `qwen3.8-max-preview`, `claude-fable-5`, `claude-fable-5-1`, `claude-haiku-4-5`, `claude-opus-5`, `claude-sonnet-5`, `deepseek-v4-flash`, `deepseek-v4-pro`, `gemini-3.1-pro`, `gemini-3.6-flash`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-6-astra`, `grok-4.6`, `k3`, `kimi-for-coding-highspeed`, `kimi-k3`, `gpt-5.6-luna-fast`, `glm-5.2`, `glm-5.3`, `mimo-v2.5-pro`, `minimax-m2.7`, `minimax-m3`, `grok-4.20-0309-non-reasoning`, `custom` |
-| `session_started` | `default_provider` | `string` | `alibaba-token-plan`, `alibaba-token-plan-cn`, `anthropic`, `anthropic-api`, `bailian-coding-plan`, `deepseek`, `google`, `github-copilot`, `kimi-coding`, `kimi-for-coding`, `moonshotai`, `openai`, `openai-codex`, `opencode`, `opencode-go`, `qwen-token-plan`, `qwen-token-plan-cn`, `vercel`, `xai`, `xiaomi`, `zai-coding-plan`, `custom` |
+| `session_started` | `default_provider` | `string` | `alibaba-token-plan`, `alibaba-token-plan-cn`, `anthropic`, `anthropic-api`, `bailian-coding-plan`, `claude-sdk-oauth`, `deepseek`, `google`, `github-copilot`, `kimi-coding`, `kimi-for-coding`, `moonshotai`, `openai`, `openai-codex`, `opencode`, `opencode-go`, `qwen-token-plan`, `qwen-token-plan-cn`, `vercel`, `xai`, `xiaomi`, `zai-coding-plan`, `custom` |
 | `session_started` | `memory_bucket` | `string` | `lt_8_gb`, `8_15_gb`, `16_31_gb`, `32_63_gb`, `64_plus_gb` |
 | `session_started` | `model_count` | `number` | - |
 | `session_started` | `provider_count` | `number` | - |
@@ -49,7 +49,7 @@ The payloads carry only booleans, buckets, counters, and allowlisted enum values
 | `turn_completed` | `input_tokens` | `number` | - |
 | `turn_completed` | `model_id` | `string` | `qwen3.6-flash`, `qwen3.8-max-preview`, `claude-fable-5`, `claude-fable-5-1`, `claude-haiku-4-5`, `claude-opus-5`, `claude-sonnet-5`, `deepseek-v4-flash`, `deepseek-v4-pro`, `gemini-3.1-pro`, `gemini-3.6-flash`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-6-astra`, `grok-4.6`, `k3`, `kimi-for-coding-highspeed`, `kimi-k3`, `gpt-5.6-luna-fast`, `glm-5.2`, `glm-5.3`, `mimo-v2.5-pro`, `minimax-m2.7`, `minimax-m3`, `grok-4.20-0309-non-reasoning`, `custom` |
 | `turn_completed` | `output_tokens` | `number` | - |
-| `turn_completed` | `provider` | `string` | `alibaba-token-plan`, `alibaba-token-plan-cn`, `anthropic`, `anthropic-api`, `bailian-coding-plan`, `deepseek`, `google`, `github-copilot`, `kimi-coding`, `kimi-for-coding`, `moonshotai`, `openai`, `openai-codex`, `opencode`, `opencode-go`, `qwen-token-plan`, `qwen-token-plan-cn`, `vercel`, `xai`, `xiaomi`, `zai-coding-plan`, `custom` |
+| `turn_completed` | `provider` | `string` | `alibaba-token-plan`, `alibaba-token-plan-cn`, `anthropic`, `anthropic-api`, `bailian-coding-plan`, `claude-sdk-oauth`, `deepseek`, `google`, `github-copilot`, `kimi-coding`, `kimi-for-coding`, `moonshotai`, `openai`, `openai-codex`, `opencode`, `opencode-go`, `qwen-token-plan`, `qwen-token-plan-cn`, `vercel`, `xai`, `xiaomi`, `zai-coding-plan`, `custom` |
 | `turn_completed` | `reasoning_tokens` | `number` | - |
 | `turn_completed` | `total_tokens` | `number` | - |
 | `turn_completed` | `turn_index` | `number` | - |
@@ -110,7 +110,7 @@ The payloads carry only booleans, buckets, counters, and allowlisted enum values
 | `delegation_completed` | `model_source` | `string` | `category`, `explicit`, `agent`, `none` |
 | `delegation_completed` | `output_tokens` | `number` | - |
 | `delegation_completed` | `owner_kind` | `string` | `plain_child`, `dag_node`, `team_member`, `unknown` |
-| `delegation_completed` | `provider` | `string` | `alibaba-token-plan`, `alibaba-token-plan-cn`, `anthropic`, `anthropic-api`, `bailian-coding-plan`, `deepseek`, `google`, `github-copilot`, `kimi-coding`, `kimi-for-coding`, `moonshotai`, `openai`, `openai-codex`, `opencode`, `opencode-go`, `qwen-token-plan`, `qwen-token-plan-cn`, `vercel`, `xai`, `xiaomi`, `zai-coding-plan`, `custom` |
+| `delegation_completed` | `provider` | `string` | `alibaba-token-plan`, `alibaba-token-plan-cn`, `anthropic`, `anthropic-api`, `bailian-coding-plan`, `claude-sdk-oauth`, `deepseek`, `google`, `github-copilot`, `kimi-coding`, `kimi-for-coding`, `moonshotai`, `openai`, `openai-codex`, `opencode`, `opencode-go`, `qwen-token-plan`, `qwen-token-plan-cn`, `vercel`, `xai`, `xiaomi`, `zai-coding-plan`, `custom` |
 | `delegation_completed` | `reasoning_effort` | `string` | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, `other`, `none` |
 | `delegation_completed` | `run_epoch` | `number` | - |
 | `delegation_completed` | `start_reason` | `string` | `initial_spawn`, `runtime_fallback`, `session_resume`, `dag_retry`, `revive_after_completed`, `revive_after_error`, `revive_after_cancelled`, `revive_after_interrupted`, `revive_after_lost`, `unknown` |
