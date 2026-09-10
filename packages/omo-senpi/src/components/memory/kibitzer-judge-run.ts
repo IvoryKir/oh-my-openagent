@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "@oh-my-opencode/memory-core/fs"
-import type { RecallNudge } from "@oh-my-opencode/memory-core"
+import { loadKibitzerPersona, PERSONA_ASSET_FILENAMES, type RecallNudge } from "@oh-my-opencode/memory-core"
 import type { ChildHandle } from "@oh-my-opencode/senpi-task"
 import { join } from "node:path"
 
@@ -54,6 +54,17 @@ export async function runKibitzerJudge(
     })
     return result
   }
+  // The persona is the one asset the child consumes that lives in the mutable install tree. It is
+  // primed at registration (persona-prime.ts) and served from memory-core's cache; a read that still
+  // fails here is reported as itself, named by asset, instead of as a session-creation failure.
+  let systemPrompt: string
+  try {
+    systemPrompt = (host.options.loadPersona ?? loadKibitzerPersona)()
+  } catch (error) {
+    const reason = normalizeGateReason(`${PERSONA_ASSET_FILENAMES.kibitzer}: ${describe(error)}`)
+    host.options.logger?.warn("kibitzer gate persona unavailable", { runId, asset: PERSONA_ASSET_FILENAMES.kibitzer, reason })
+    return await record({ status: "failed", cause: "persona_unavailable", reason, runId, model: resolution.model, candidateCount: input.candidates.length })
+  }
   let deadlineTimer: ReturnType<typeof setTimeout> | undefined
   let deadlineReached = false
   const deadline = new Promise<"deadline">((resolve) => {
@@ -78,6 +89,7 @@ export async function runKibitzerJudge(
       chain: childModelChainSpec({ model: resolution.model, fallbacks: resolution.fallbacks }),
       ...(resolution.thinking === undefined ? {} : { thinkingLevel: resolution.thinking }),
       accepted,
+      systemPrompt,
     }))
   })()
   const setupResult = setup.then(

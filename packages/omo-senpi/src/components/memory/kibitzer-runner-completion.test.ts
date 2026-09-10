@@ -132,6 +132,32 @@ describe("KibitzerGateRunner", () => {
     expect(warnings.find((entry) => entry.message === "kibitzer gate run artifacts skipped")?.details).toMatchObject({ runId: result.runId })
   })
 
+  test("#given the persona asset missing on disk #when the runner launches #then the failure is persona_unavailable and names the asset", async () => {
+    // given: the payload lost kibitzer-persona.md (in-place upgrade or runtime prune under a live process)
+    const { identityPaths } = await fixture()
+    const { warnings, logger } = captureWarnings()
+    let sessions = 0
+    const runner = new KibitzerGateRunner(runnerOptions(identityPaths, {
+      loadPersona: () => {
+        throw new Error("ENOENT: no such file or directory, open '/opt/omo/plugin/extensions/kibitzer-persona.md'")
+      },
+      createSession: async () => {
+        sessions += 1
+        throw new Error("the child must not be created without its persona")
+      },
+      logger,
+    }))
+
+    // when
+    const result = await runner.launch(launchInput())
+
+    // then
+    expect(result).toMatchObject({ status: "failed", cause: "persona_unavailable" })
+    expect(result.status === "failed" ? result.reason : undefined).toContain("kibitzer-persona.md")
+    expect(sessions).toBe(0)
+    expect(warnings.map((entry) => entry.message)).not.toContain("kibitzer gate child session creation failed")
+  })
+
   test("#given a child turn that ends with a secret-bearing provider error #when the runner launches #then child_failed is redacted and logs omit the token", async () => {
     // given
     const { identityPaths } = await fixture()
