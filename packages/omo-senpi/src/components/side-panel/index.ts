@@ -197,6 +197,11 @@ export function createSidePanelComponent(options: SidePanelComponentOptions = {}
         if (surface === undefined) return undefined
         facts = { ...facts, ...panelFactsFrom(eventCtx) }
         surface.requestRender()
+        // A credential-pool rotation must not sit behind the poll interval: the numbers on screen
+        // would keep naming the account the session just moved off. This pass is self-gating - it
+        // reaches the network only when the entry is stale or the serving account changed - so it
+        // costs two small file reads on an ordinary turn.
+        void usage?.pollOnce()
         await Promise.all([refreshChildren(), refreshGit(false)])
         scheduleLiveRefresh()
         return undefined

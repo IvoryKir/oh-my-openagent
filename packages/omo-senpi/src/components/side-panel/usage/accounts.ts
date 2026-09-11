@@ -1,5 +1,5 @@
 import { MIN_ACCESS_TOKEN_LENGTH } from "../constants"
-import { asArray, asRecord, nonEmptyString } from "../guards"
+import { asArray, asRecord, finiteNumber, nonEmptyString } from "../guards"
 import type { PanelAccountState } from "./types"
 
 /**
@@ -44,13 +44,19 @@ export function resolveUsageCredential(
     .map((entry) => asRecord(entry))
     .filter((entry): entry is Record<string, unknown> => entry !== undefined)
 
+  /**
+   * A rotation is recorded in TWO places and either one means the session has moved on: the pool
+   * slot (`blockedUntil` / `cooldownUntil`) and the account object itself, which senpi stamps with
+   * `blockedUntil` plus a `blockReason` when it rate-limits one. Reading only the pool let a
+   * rate-limited account keep its name over numbers the session was no longer spending.
+   */
   const health = (account: Record<string, unknown>): PanelAccountState => {
     const name = nonEmptyString(account["name"])
     const slot = name === undefined ? undefined : slots[name]
-    const until = slot?.blockedUntil ?? slot?.cooldownUntil
-    if (typeof until === "number" && until > now) return "cooldown"
-    const expires = account["expires"]
-    if (typeof expires === "number" && expires <= now) return "stale"
+    const blocks = [slot?.blockedUntil, slot?.cooldownUntil, finiteNumber(account["blockedUntil"])]
+    if (blocks.some((until) => until !== undefined && until > now)) return "cooldown"
+    const expires = finiteNumber(account["expires"])
+    if (expires !== undefined && expires <= now) return "stale"
     return "ok"
   }
 

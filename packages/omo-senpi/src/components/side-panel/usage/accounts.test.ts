@@ -81,4 +81,39 @@ describe("resolveUsageCredential", () => {
     // given / when / then
     expect(resolveUsageCredential({}, undefined, PROVIDER, NOW)).toBeUndefined()
   })
+
+  test("#given the pinned account is blocked in auth.json #when resolved #then the healthy one serves", () => {
+    // given senpi records a rotation as blockedUntil ON THE ACCOUNT, and leaves the pool slot clean;
+    // reading only the pool made the panel print the rotated-away name over somebody else's numbers
+    const file = auth(
+      [
+        { name: "work", access: token("work"), blockedUntil: NOW + 60_000, blockReason: "rate_limit" },
+        { name: "personal", access: token("personal") },
+      ],
+      "work",
+    )
+
+    // when
+    const credential = resolveUsageCredential(file, undefined, PROVIDER, NOW)
+
+    // then
+    expect(credential).toEqual({
+      access: token("personal"),
+      state: "ok",
+      account: "personal",
+      pinnedAccount: "work",
+    })
+  })
+
+  test("#given an account block that has already expired #when resolved #then the pinned account still serves", () => {
+    // given a stale block must not hand the session away
+    const file = auth([{ name: "work", access: token("work"), blockedUntil: NOW - 1 }], "work")
+
+    // when / then
+    expect(resolveUsageCredential(file, undefined, PROVIDER, NOW)).toEqual({
+      access: token("work"),
+      state: "ok",
+      account: "work",
+    })
+  })
 })

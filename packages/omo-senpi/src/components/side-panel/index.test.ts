@@ -550,6 +550,32 @@ describe("side panel usage wiring", () => {
     expect(reads).toBe(1)
   })
 
+  test("#given a turn ends #when the panel refreshes #then the poller gets a pass for rotations", async () => {
+    // given a pool rotation only shows up when credentials are re-read; waiting for the poll
+    // interval would leave the old account's name over the new account's numbers
+    let reads = 0
+    const harness = mounted({
+      loadSettings: () => settings({ enabled: true, sections: { ...allSections(), usage: true } }),
+      usage: {
+        cachePath: join(mkdtempSync(join(tmpdir(), "omo-usage-nudge-")), "usage.json"),
+        readCredentials: () => {
+          reads += 1
+          return { auth: {}, pool: undefined }
+        },
+        fetch: () => Promise.reject(new Error("no provider is configured, so nothing should be fetched")),
+      },
+    })
+    await harness.pi.dispatch("session_start", {}, harness.host)
+    const afterMount = reads
+
+    // when
+    await harness.pi.dispatch("turn_end", {}, harness.host)
+
+    // then
+    expect(afterMount).toBe(1)
+    expect(reads).toBeGreaterThan(afterMount)
+  })
+
   test("#given numbers another session cached #when the panel mounts #then they are on screen at once", async () => {
     // given the cache is shared, so a new window starts with the numbers rather than waiting
     const cachePath = join(mkdtempSync(join(tmpdir(), "omo-usage-shared-")), "usage.json")
